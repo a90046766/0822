@@ -215,6 +215,8 @@ export default function PageOrderDetail() {
                   }}
                   className="w-20 rounded border px-2 py-1 text-sm"
                 />
+              </div>
+              <div className="mt-1">
                 <button
                   onClick={async () => {
                     const maxPoints = memberPoints
@@ -317,78 +319,112 @@ export default function PageOrderDetail() {
         </div>
       </div>
 
+      {/* 簽名 */}
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <SectionTitle>簽名</SectionTitle>
+        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+          {/* 技師簽名 */}
+          <div className="rounded border p-2">
+            <div className="text-xs text-gray-600">技師簽名</div>
+            <div className="mt-1 flex items-center gap-2">
+              {Array.isArray(order.assignedTechnicians) && order.assignedTechnicians.length>0 ? (
+                <>
+                  <select
+                    className="rounded-lg border px-2 py-1 text-sm"
+                    value={order.signatureTechnician || ''}
+                    onChange={async (e) => { const val=e.target.value; await repos.orderRepo.update(order.id, { signatureTechnician: val }); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
+                    disabled={hasTechSignature}
+                  >
+                    <option value="">請選擇</option>
+                    {order.assignedTechnicians.map((n: string, i: number) => (<option key={i} value={n}>{n}</option>))}
+                  </select>
+                  <button onClick={()=>{ if(!order.signatureTechnician){ alert('請先選擇簽名技師'); return } setSignAs('technician'); setSignOpen(true) }} className="rounded bg-gray-900 px-3 py-1 text-white" disabled={hasTechSignature}>簽名</button>
+                  {hasTechSignature ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">已簽名</span> : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">未簽名</span>}
+                </>
+              ) : (
+                <span className="text-xs text-amber-700">尚未指派技師</span>
+              )}
+            </div>
+          </div>
+          {/* 客戶簽名 */}
+          <div className="rounded border p-2">
+            <div className="text-xs text-gray-600">客戶簽名</div>
+            <div className="mt-1 flex items-center gap-2">
+              <button onClick={()=>{ setSignAs('customer'); setSignOpen(true) }} className="rounded bg-gray-900 px-3 py-1 text-white" disabled={hasCustomerSignature}>簽名</button>
+              {hasCustomerSignature ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">已簽名</span> : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">未簽名</span>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 服務進度 */}
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <SectionTitle>服務進度</SectionTitle>
+        <div className="mt-3 flex flex-col gap-3">
+          {/* 時間顯示 */}
+          <div className="grid grid-cols-1 gap-2 text-sm text-gray-700 md:grid-cols-2">
+            <div>開始時間：<span className="font-mono">{order.workStartedAt ? new Date(order.workStartedAt).toLocaleString() : '—'}</span></div>
+            <div>完成時間：<span className="font-mono">{order.workCompletedAt ? new Date(order.workCompletedAt).toLocaleString() : '—'}</span></div>
+          </div>
+          {order.status==='in_progress' && timeLeftSec>0 && (
+            <div className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-700">
+              已開始服務；完成前冷卻倒數：
+              <span className="ml-2 rounded bg-white px-2 py-0.5 font-mono">
+                {String(Math.floor(timeLeftSec/60)).padStart(2,'0')}:{String(timeLeftSec%60).padStart(2,'0')}
+              </span>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {order.status==='confirmed' && (
+              <button onClick={()=>setPromiseOpen(true)} className="rounded bg-brand-500 px-3 py-1 text-white">開始服務</button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* 服務照片 */}
       <div className="rounded-2xl bg-white p-4 shadow-card">
         <SectionTitle>服務照片</SectionTitle>
-        <div className="mt-3 space-y-4">
-          {/* 服務前照片 */}
+        <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <div className="text-sm font-medium text-gray-700">服務前照片</div>
-            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="relative aspect-square rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0]
-                      if (!file) return
-                      const compressed = await compressImageToDataUrl(file, 200)
-                      const next = [...(order.photosBefore || [])]
-                      next[i] = compressed
-                      await repos.orderRepo.update(order.id, { photosBefore: next })
-                      const o = await repos.orderRepo.get(order.id)
-                      setOrder(o)
-                    }}
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                    disabled={uploadingBefore}
-                  />
-                  {order.photosBefore?.[i] ? (
-                    <img src={order.photosBefore[i]} alt={`Before ${i + 1}`} className="h-full w-full rounded-lg object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-gray-400">
-                      {uploadingBefore ? '上傳中...' : `前${i + 1}`}
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="mb-1 font-semibold">清洗前 <span className="text-xs text-gray-500">({(order.photosBefore||[]).length}/8)</span></div>
+            <PhotoGrid urls={order.photosBefore || []} />
+            <div className="mt-2 text-sm">
+              <input type="file" accept="image/*" multiple disabled={uploadingBefore} onChange={async (e)=>{
+                const files = Array.from(e.target.files || [])
+                const exist = order.photosBefore?.length || 0
+                const room = Math.max(0, 8 - exist)
+                if (files.length > room) { alert(`清洗前照片上限 8 張，尚可新增 ${room} 張。`); return }
+                const imgs: string[] = []
+                try{
+                  setUploadingBefore(true)
+                  for (const f of files) imgs.push(await compressImageToDataUrl(f, 200))
+                  await repos.orderRepo.update(order.id, { photosBefore: [ ...(order.photosBefore||[]), ...imgs ] })
+                  const o = await repos.orderRepo.get(order.id); setOrder(o)
+                } finally { setUploadingBefore(false) }
+              }} />
+              <div className="mt-1 text-xs text-gray-500">{uploadingBefore?'上傳中… ':''}最多 8 張，單張壓縮後 ≦ 200KB</div>
             </div>
-            <div className="mt-1 text-xs text-gray-500">服務前照片 ({order.photosBefore?.filter(Boolean).length || 0}/8)</div>
           </div>
-
-          {/* 服務後照片 */}
           <div>
-            <div className="text-sm font-medium text-gray-700">服務後照片</div>
-            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="relative aspect-square rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0]
-                      if (!file) return
-                      const compressed = await compressImageToDataUrl(file, 200)
-                      const next = [...(order.photosAfter || [])]
-                      next[i] = compressed
-                      await repos.orderRepo.update(order.id, { photosAfter: next })
-                      const o = await repos.orderRepo.get(order.id)
-                      setOrder(o)
-                    }}
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                    disabled={uploadingAfter}
-                  />
-                  {order.photosAfter?.[i] ? (
-                    <img src={order.photosAfter[i]} alt={`After ${i + 1}`} className="h-full w-full rounded-lg object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-gray-400">
-                      {uploadingAfter ? '上傳中...' : `後${i + 1}`}
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="mb-1 font-semibold">清洗後 <span className="text-xs text-gray-500">({(order.photosAfter||[]).length}/8)</span></div>
+            <PhotoGrid urls={order.photosAfter || []} />
+            <div className="mt-2 text-sm">
+              <input type="file" accept="image/*" multiple disabled={uploadingAfter} onChange={async (e)=>{
+                const files = Array.from(e.target.files || [])
+                const exist = order.photosAfter?.length || 0
+                const room = Math.max(0, 8 - exist)
+                if (files.length > room) { alert(`清洗後照片上限 8 張，尚可新增 ${room} 張。`); return }
+                const imgs: string[] = []
+                try{
+                  setUploadingAfter(true)
+                  for (const f of files) imgs.push(await compressImageToDataUrl(f, 200))
+                  await repos.orderRepo.update(order.id, { photosAfter: [ ...(order.photosAfter||[]), ...imgs ] })
+                  const o = await repos.orderRepo.get(order.id); setOrder(o)
+                } finally { setUploadingAfter(false) }
+              }} />
+              <div className="mt-1 text-xs text-gray-500">{uploadingAfter?'上傳中… ':''}最多 8 張，單張壓縮後 ≦ 200KB</div>
             </div>
-            <div className="mt-1 text-xs text-gray-500">服務後照片 ({order.photosAfter?.filter(Boolean).length || 0}/8)</div>
           </div>
         </div>
         

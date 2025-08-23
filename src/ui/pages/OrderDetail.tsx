@@ -57,6 +57,22 @@ export default function PageOrderDetail() {
   },[order])
   const [products, setProducts] = useState<any[]>([])
   useEffect(()=>{ (async()=>{ if(!repos) return; setProducts(await repos.productRepo.list()) })() },[repos])
+  // 指派技師顯示：若訂單內沒有 names，嘗試從排班 work 反推
+  const [derivedAssigned, setDerivedAssigned] = useState<string[]>([])
+  useEffect(()=>{ (async()=>{
+    try{
+      if (!repos || !order?.id) return
+      if (Array.isArray(order.assignedTechnicians) && order.assignedTechnicians.length>0) { setDerivedAssigned([]); return }
+      const d = (order.preferredDate || (order.createdAt||'').slice(0,10) || new Date().toISOString().slice(0,10))
+      const ws = await repos.scheduleRepo.listWork({ start: d, end: d })
+      const mine = (ws||[]).filter((w:any)=>w.orderId===order.id)
+      if (mine.length===0) { setDerivedAssigned([]); return }
+      const techMap: Record<string,string> = {}
+      ;(techs||[]).forEach((t:any)=>{ techMap[(t.email||'').toLowerCase()] = t.name })
+      const names = Array.from(new Set(mine.map((w:any)=> (techMap[(w.technicianEmail||'').toLowerCase()] || w.technicianEmail) as string).filter(Boolean))) as string[]
+      setDerivedAssigned(names as string[])
+    }catch{}
+  })() }, [repos, order?.id, order?.preferredDate, order?.createdAt, techs])
   // 倒數計時（開始服務後 N 分鐘內不可按「服務完成」；由設定決定）
   useEffect(()=>{
     if (!order?.workStartedAt || order?.status==='completed' || order?.status==='canceled' || (order as any)?.status==='unservice') { setTimeLeftSec(0); return }
@@ -97,6 +113,8 @@ export default function PageOrderDetail() {
     (order.status==='in_progress' || order.status==='unservice') &&
     timeLeftSec===0 &&
     hasSignature &&
+    (!!payMethod || payStatus==='nopay') &&
+    (payStatus==='paid' || payStatus==='nopay') &&
     requirePhotosOk
   )
   const closeDisabledReason = (()=>{

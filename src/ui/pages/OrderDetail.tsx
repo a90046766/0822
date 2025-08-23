@@ -1,0 +1,716 @@
+import { SectionTitle, StatusChip, PhotoGrid } from '../kit'
+import { Link, useParams } from 'react-router-dom'
+import { authRepo } from '../../adapters/local/auth'
+import { can } from '../../utils/permissions'
+import { useEffect, useState } from 'react'
+import { loadAdapters } from '../../adapters'
+import { compressImageToDataUrl } from '../../utils/image'
+import SignatureModal from '../components/SignatureModal'
+
+export default function PageOrderDetail() {
+  const { id } = useParams()
+  const [order, setOrder] = useState<any>(null)
+  const [signOpen, setSignOpen] = useState(false)
+  const [promiseOpen, setPromiseOpen] = useState(false)
+  const [editItems, setEditItems] = useState(false)
+  const [itemsDraft, setItemsDraft] = useState<any[]>([])
+  const [memberCode, setMemberCode] = useState<string>('')
+  const [memberName, setMemberName] = useState<string>('')
+  const [memberPoints, setMemberPoints] = useState<number>(0)
+  const [timeLeftSec, setTimeLeftSec] = useState<number>(0)
+  const [createdAtEdit, setCreatedAtEdit] = useState<string>('')
+  const [dateEdit, setDateEdit] = useState<string>('')
+  const [startEdit, setStartEdit] = useState<string>('')
+  const [endEdit, setEndEdit] = useState<string>('')
+  const [payMethod, setPayMethod] = useState<'cash'|'transfer'|'card'|'applepay'|'other'|''>('')
+  const [payStatus, setPayStatus] = useState<'unpaid'|'paid'|'partial'|'pending'|'nopay'|''>('')
+  const [signAs, setSignAs] = useState<'customer'|'technician'>('technician')
+  const [paySignOpen, setPaySignOpen] = useState(false)
+  const [transferInputOpen, setTransferInputOpen] = useState(false)
+  const [transferAmount, setTransferAmount] = useState<string>('')
+  const [transferLast5, setTransferLast5] = useState<string>('')
+  const [note, setNote] = useState<string>(order?.note || '')
+  const [unserviceOpen, setUnserviceOpen] = useState(false)
+  const [unserviceFare, setUnserviceFare] = useState<'none'|'fare400'>('none')
+  const [unserviceReason, setUnserviceReason] = useState('')
+  const user = authRepo.getCurrentUser()
+  const [repos, setRepos] = useState<any>(null)
+  const [techs, setTechs] = useState<any[]>([])
+  const [uploadingBefore, setUploadingBefore] = useState(false)
+  const [uploadingAfter, setUploadingAfter] = useState(false)
+  useEffect(()=>{ (async()=>{ const a = await loadAdapters(); setRepos(a) })() },[])
+  useEffect(() => { if (!repos || !id) return; repos.orderRepo.get(id).then(setOrder) }, [id, repos])
+  useEffect(()=>{ (async()=>{ try{ if(!repos) return; if(repos.technicianRepo?.list){ const rows = await repos.technicianRepo.list(); setTechs(rows||[]) } }catch{} })() },[repos])
+  useEffect(() => { if (order) setItemsDraft(order.serviceItems || []) }, [order])
+  useEffect(()=>{ (async()=>{ try { if (!repos) return; if (order?.memberId) { const m = await repos.memberRepo.get(order.memberId); setMemberCode(m?.code||''); setMemberName(m?.name||''); setMemberPoints(m?.points||0) } else { setMemberCode(''); setMemberName(''); setMemberPoints(0) } } catch {} })() },[order?.memberId, repos])
+  useEffect(()=>{
+    if (!order) return
+    const toLocal = (iso:string) => {
+      try { return iso.slice(0,19) + (iso.includes('Z')?'':'') } catch { return '' }
+    }
+    setCreatedAtEdit(order.createdAt?.slice(0,16).replace('T','T') || new Date().toISOString().slice(0,16))
+    setDateEdit(order.preferredDate||'')
+    setStartEdit(order.preferredTimeStart||'09:00')
+    setEndEdit(order.preferredTimeEnd||'12:00')
+    setPayMethod((order.paymentMethod as any) || '')
+    setPayStatus((order.paymentStatus as any) || '')
+  },[order])
+  const [products, setProducts] = useState<any[]>([])
+  useEffect(()=>{ (async()=>{ if(!repos) return; setProducts(await repos.productRepo.list()) })() },[repos])
+  // 倒數計時（開始服務後 N 分鐘內不可按「服務完成」；由設定決定）
+  useEffect(()=>{
+    if (!order?.workStartedAt || order?.status==='completed' || order?.status==='canceled' || (order as any)?.status==='unservice') { setTimeLeftSec(0); return }
+    const parseTs = (s:string) => {
+      if (!s) return 0
+      if (s.includes('T')) return Date.parse(s)
+      const d = new Date(s); return isNaN(d.getTime()) ? 0 : d.getTime()
+    }
+    let h: any
+    ;(async()=>{
+      try {
+        const { settingsRepo } = await import('../../adapters/local/settings')
+        const s = await settingsRepo.get().catch(()=>({ countdownEnabled:false, countdownMinutes:0 } as any))
+        const COOLDOWN_MS = ((s?.countdownEnabled ? s.countdownMinutes : 0) || 0) * 60 * 1000
+        if (!COOLDOWN_MS) { setTimeLeftSec(0); return }
+        const started = parseTs(order.workStartedAt)
+        const endAt = started + COOLDOWN_MS
+        const tick = () => { const now = Date.now(); const left = Math.max(0, Math.floor((endAt - now)/1000)); setTimeLeftSec(left) }
+        tick(); h = setInterval(tick, 1000)
+      } catch { setTimeLeftSec(0) }
+    })()
+    return () => { if (h) clearInterval(h) }
+  }, [order?.workStartedAt, order?.status])
+  useEffect(()=>{ setNote((order as any)?.note || '') }, [order?.note])
+  if (!order) return <div>載入中...</div>
+  const isAdminOrSupport = user?.role==='admin' || user?.role==='support'
+  const isAssignedTech = user?.role==='technician' && Array.isArray(order.assignedTechnicians) && order.assignedTechnicians.includes(user?.name || '')
+  const isTechnician = user?.role === 'technician'
+  const statusText = (s: string) => s==='draft' ? '草稿' : s==='confirmed' ? '已確認' : s==='in_progress' ? '服務中' : s==='completed' ? '已完成' : s==='canceled' ? '已取消' : s
+  const fmt = (n: number) => new Intl.NumberFormat('zh-TW').format(n || 0)
+  const subTotal = (order.serviceItems||[]).reduce((s:number,it:any)=>s+it.unitPrice*it.quantity,0)
+  const amountDue = Math.max(0, subTotal - (order.pointsDeductAmount||0))
+  const hasTechSignature = Boolean(order?.signatures && (order as any).signatures?.technician)
+  const hasCustomerSignature = Boolean(order?.signatures && (order as any).signatures?.customer)
+  const hasSignature = hasTechSignature && hasCustomerSignature
+  const requirePhotosOk = (order.photosBefore?.length||0) > 0 || (order.photosAfter?.length||0) > 0
+  const canClose = (
+    (order.status==='in_progress' || order.status==='unservice') &&
+    timeLeftSec===0 &&
+    hasSignature &&
+    (!!payMethod || payStatus==='nopay') &&
+    (payStatus==='paid' || payStatus==='nopay') &&
+    requirePhotosOk
+  )
+  const closeDisabledReason = (()=>{
+    if (!(order.status==='in_progress' || order.status==='unservice')) return '尚未開始/或已標記無法服務'
+    if (timeLeftSec>0) return `剩餘 ${String(Math.floor(timeLeftSec/60)).padStart(2,'0')}:${String(timeLeftSec%60).padStart(2,'0')}`
+    if (!hasTechSignature || !hasCustomerSignature) return '需完成雙簽名'
+    if (!(payStatus==='paid' || payStatus==='nopay')) return '需完成付款或標記不用付款'
+    if (!requirePhotosOk) return '需上傳至少一張服務照片'
+    return ''
+  })()
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl bg-amber-50 p-3 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="font-semibold">{order.serviceItems?.[0]?.name || '服務內容'}</div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px]">{order.id}</span>
+            {/* 來源平台：僅客服/管理員顯示（技師/客戶不顯示） */}
+            {isAdminOrSupport && (
+              <span className={`rounded-full px-2 py-0.5 text-[10px] ${order.platform==='日'?'bg-blue-100 text-blue-700':order.platform==='同'?'bg-purple-100 text-purple-700':order.platform==='黃'?'bg-amber-100 text-amber-700':'bg-green-100 text-green-700'}`}>{order.platform||'日'}</span>
+            )}
+            {(() => { const kind: 'done'|'paid'|'pending' = (order.status==='completed' ? 'done' : 'pending'); return <StatusChip kind={kind} text={statusText(order.status)} /> })()}
+          </div>
+        </div>
+        {/* 來源平台調整到上方（僅客服/管理員可修改） */}
+        {isAdminOrSupport && (
+          <div className="mt-2 text-xs text-gray-600">
+            來源平台：
+            <select className="ml-1 rounded border px-2 py-0.5" value={order.platform||'日'} onChange={async e=>{ await repos.orderRepo.update(order.id, { platform: e.target.value as any }); const o=await repos.orderRepo.get(order.id); setOrder(o) }}>
+              {['日','同','黃','今'].map(p=> <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+        )}
+        <div className="mt-1 text-xs text-gray-600">
+          會員：{memberCode ? (<>
+            {memberCode}{memberName ? `（${memberName}）` : ''}
+            <button className="ml-2 rounded bg-gray-100 px-1.5 py-0.5" onClick={()=>navigator.clipboard?.writeText(memberCode)}>複製MO</button>
+          </>) : '—'}
+        </div>
+      </div>
+
+      {/* 備註區 */}
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <SectionTitle>備註</SectionTitle>
+        <div className="mt-2 text-sm">
+          <textarea
+            className="w-full rounded-lg border px-3 py-2"
+            placeholder="輸入備註（無法服務選項/原因/客戶簽名等會自動寫入）"
+            rows={4}
+            value={note}
+            onChange={e=>setNote(e.target.value)}
+            onBlur={async()=>{ await repos.orderRepo.update(order.id, { note }); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        {order.status !== 'canceled' && can(user,'orders.cancel') && (
+          <button
+            className="rounded-xl bg-rose-500 px-4 py-2 text-white"
+            onClick={async()=>{
+              const { confirmTwice } = await import('../kit')
+              if(order.status!=='confirmed'){ alert('僅已確認的訂單可以取消'); return }
+              if (!(await confirmTwice('確認要取消此訂單？','取消後需重新下單，仍要取消？'))) return
+              const reason = prompt('請輸入取消理由：') || ''
+              if (!reason.trim()) return
+              await repos.orderRepo.cancel(order.id, reason)
+              const o = await repos.orderRepo.get(order.id); setOrder(o)
+              alert('已取消')
+            }}
+          >取消訂單</button>
+        )}
+        {order.status === 'draft' && can(user,'orders.delete') && (
+          <button
+            className="rounded-xl bg-gray-900 px-4 py-2 text-white"
+            onClick={async()=>{
+              const { confirmTwice } = await import('../kit')
+              if (!(await confirmTwice('確認要刪除此草稿訂單？','刪除後無法復原，仍要刪除？'))) return
+              const reason = prompt('請輸入刪除理由：') || ''
+              if (!reason.trim()) return
+              try { await repos.orderRepo.delete(order.id, reason); alert('已刪除'); window.history.back() } catch (e:any) { alert(e?.message||'刪除失敗') }
+            }}
+          >刪除（草稿）</button>
+        )}
+      </div>
+
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <SectionTitle>客戶資料</SectionTitle>
+        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+          <div>姓名：<input className="w-full rounded border px-2 py-1" value={order.customerName||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerName:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
+          <div>手機：<div className="flex gap-2"><input className="w-full rounded border px-2 py-1" value={order.customerPhone||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerPhone:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /><a href={`tel:${order.customerPhone}`} className="rounded bg-brand-500 px-3 py-1 text-white">撥打</a></div></div>
+          <div className="col-span-2">地址：<div className="flex gap-2"><input className="w-full rounded border px-2 py-1" value={order.customerAddress||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerAddress:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /><a className="rounded bg-gray-100 px-3 py-1" target="_blank" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customerAddress||'')}`}>地圖</a></div></div>
+          <div>會員編號：<span className="text-gray-700">{memberCode||'—'}</span></div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <SectionTitle>服務內容</SectionTitle>
+        <div className="mt-3 text-sm">
+          {!editItems ? (
+            <div className="rounded border">
+              <div className="grid grid-cols-4 bg-gray-50 px-2 py-1 text-xs text-gray-600"><div>項目</div><div>數量</div><div>單價</div><div className="text-right">小計</div></div>
+              {(order.serviceItems||[]).map((it:any,i:number)=>{
+                const sub = it.quantity*it.unitPrice
+                return <div key={i} className="grid grid-cols-4 items-center px-2 py-1 text-sm"><div>{it.name}</div><div>{it.quantity}</div><div>{it.unitPrice}</div><div className="text-right">{sub}</div></div>
+              })}
+              <div className="border-t px-2 py-1 text-right text-rose-600">小計：<span className="text-base font-semibold">{fmt(subTotal)}</span></div>
+            </div>
+          ) : (
+            <div className="mt-2 space-y-2 text-sm">
+              {itemsDraft.map((it:any, i:number)=>{
+                const sub = (Number(it.unitPrice)||0) * (Number(it.quantity)||0)
+                return (
+                  <div key={i} className="grid grid-cols-6 items-center gap-2">
+                    <select className="col-span-2 rounded border px-2 py-1" value={it.productId||''} onChange={async (e)=>{ const val=e.target.value; const arr=[...itemsDraft]; if(val){ const p = products.find((x:any)=>x.id===val); arr[i]={...arr[i], productId:val, name:p?.name||it.name, unitPrice:p?.unitPrice||it.unitPrice}; } else { arr[i]={...arr[i], productId:undefined}; } setItemsDraft(arr) }}>
+                      <option value="">自訂</option>
+                      {products.map((p:any)=>(<option key={p.id} value={p.id}>{p.name}（{p.unitPrice}）</option>))}
+                    </select>
+                    <input className="col-span-2 rounded border px-2 py-1" value={it.name} onChange={e=>{ const arr=[...itemsDraft]; arr[i]={...arr[i], name:e.target.value}; setItemsDraft(arr) }} />
+                    <div className="flex items-center gap-2">
+                      <button onClick={()=>{ const arr=[...itemsDraft]; const q=Math.max(1, (Number(arr[i].quantity)||1)-1); arr[i]={...arr[i], quantity:q}; setItemsDraft(arr) }} className="rounded bg-gray-100 px-2 py-1">-</button>
+                      <input type="number" className="w-16 rounded border px-2 py-1 text-right" value={it.quantity} onChange={e=>{ const arr=[...itemsDraft]; const q = Math.max(1, Number(e.target.value)||1); arr[i]={...arr[i], quantity:q}; setItemsDraft(arr) }} />
+                      <button onClick={()=>{ const arr=[...itemsDraft]; const q=(Number(arr[i].quantity)||0)+1; arr[i]={...arr[i], quantity:q}; setItemsDraft(arr) }} className="rounded bg-gray-100 px-2 py-1">+</button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="number" className="w-24 rounded border px-2 py-1 text-right" value={it.unitPrice} onChange={e=>{ const arr=[...itemsDraft]; arr[i]={...arr[i], unitPrice:Number(e.target.value)||0}; setItemsDraft(arr) }} />
+                      <span className="text-xs text-gray-500">小計 {fmt(sub)}</span>
+                    </div>
+                    <button onClick={()=>{ if(!confirm('確定要移除此項目？')) return; const arr=[...itemsDraft]; arr.splice(i,1); setItemsDraft(arr) }} className="rounded bg-gray-100 px-2 py-1">刪</button>
+                  </div>
+                )
+              })}
+              <div><button onClick={()=>setItemsDraft([...itemsDraft, { name:'', quantity:1, unitPrice:0 }])} className="rounded bg-gray-100 px-2 py-1">新增項目</button></div>
+              <div className="text-right">
+                <button onClick={async()=>{ await repos.orderRepo.update(order.id, { serviceItems: itemsDraft }); const o=await repos.orderRepo.get(order.id); setOrder(o); setEditItems(false) }} className="rounded bg-brand-500 px-3 py-1 text-white">儲存</button>
+              </div>
+            </div>
+          )}
+          {user?.role!=='technician' && <div className="mt-2 text-right"><button onClick={()=>setEditItems(e=>!e)} className="rounded bg-gray-100 px-2 py-1 text-xs">{editItems?'取消':'編輯項目'}</button></div>}
+
+          {/* 積分抵扣區 */}
+          <div className="mt-4 rounded border p-2 text-xs text-gray-700">
+            <div className="mb-2 font-semibold">積分抵扣</div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>可用積分：<span className="font-mono">{memberPoints}</span></div>
+              <div>
+                使用積分：
+                <span className="inline-flex items-center gap-2">
+                  <input type="number" className="w-24 rounded border px-2 py-1" value={order.pointsUsed||0} onChange={async e=>{
+                    const raw = Number(e.target.value)||0
+                    const clamped = Math.max(0, Math.min(memberPoints, raw))
+                    await repos.orderRepo.update(order.id,{ pointsUsed: clamped })
+                    const o=await repos.orderRepo.get(order.id); setOrder(o)
+                  }} />
+                  <button onClick={async()=>{ const all = Math.max(0, memberPoints|0); await repos.orderRepo.update(order.id,{ pointsUsed: all }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} className="rounded bg-gray-100 px-2 py-0.5">全部使用</button>
+                </span>
+              </div>
+              <div>折抵金額：<input type="number" className="w-24 rounded border px-2 py-1" value={order.pointsDeductAmount||0} onChange={async e=>{ const raw=Number(e.target.value)||0; const amt=Math.max(0, Math.min(subTotal, raw)); await repos.orderRepo.update(order.id,{ pointsDeductAmount: amt }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
+            </div>
+            <div className="mt-2 text-right">
+              <div>小計：{fmt(subTotal)}</div>
+              <div>折抵：-{fmt(order.pointsDeductAmount||0)}</div>
+              <div className="text-rose-600">應付：<span className="text-base font-semibold">{fmt(amountDue)}</span></div>
+            </div>
+          </div>
+
+          {/* 付款區塊（互動流程） */}
+          <div className="mt-3 rounded-xl border p-3 text-xs">
+            <div className="mb-2 text-sm font-semibold">付款</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>付款方式：
+                <select className="rounded border px-2 py-1" value={payMethod} onChange={async e=>{ const v = e.target.value as any; setPayMethod(v); setTransferInputOpen(false); await repos.orderRepo.update(order.id, { paymentMethod: v }); const o=await repos.orderRepo.get(order.id); setOrder(o) }}>
+                  <option value="">—</option>
+                  <option value="cash">現金付款</option>
+                  <option value="transfer">銀行轉帳</option>
+                  <option value="card">信用卡</option>
+                  <option value="applepay">Apple Pay</option>
+                </select>
+              </div>
+              <div>付款狀態：
+                <select className="rounded border px-2 py-1" value={payStatus} onChange={async e=>{ const v=e.target.value as any; setPayStatus(v); await repos.orderRepo.update(order.id, { paymentStatus: v }); const o=await repos.orderRepo.get(order.id); setOrder(o) }}>
+                  <option value="">—</option>
+                  <option value="unpaid">未收款</option>
+                  <option value="pending">待確認</option>
+                  <option value="nopay">不用付款</option>
+                  <option value="paid">已收款</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 現金付款：收款簽名全螢幕 */}
+            {payMethod==='cash' && (
+              <div className="mt-3 rounded-lg bg-gray-50 p-2">
+                <div className="mb-1">現金收款：{fmt(amountDue)} 元</div>
+                <div className="text-[12px] text-gray-600">點擊下方「簽名確認收款」，開啟全螢幕畫板（返回/重簽/二次確認）。確認後不可更改。</div>
+                <div className="mt-2"><button onClick={()=>{ setSignAs('technician'); setPaySignOpen(true) }} className="rounded bg-gray-900 px-3 py-1 text-white">簽名確認收款</button></div>
+              </div>
+            )}
+
+            {/* 轉帳：顯示 QR 與填寫金額/後五碼 */}
+            {payMethod==='transfer' && (
+              <div className="mt-3 rounded-lg bg-gray-50 p-2">
+                <div className="mb-1">銀行轉帳</div>
+                <div className="text-[12px] text-gray-600">請客戶掃描 QR 後轉帳。完成後輸入金額與後五碼，技師確認明細後按二次確認。</div>
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="rounded border bg-white p-2 text-center text-xs">822 QR<br/>（示意）</div>
+                  <button onClick={()=>setTransferInputOpen(true)} className="rounded bg-brand-500 px-3 py-1 text-white">完成轉帳</button>
+                </div>
+                {transferInputOpen && (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <input placeholder="轉帳金額" value={transferAmount} onChange={e=>setTransferAmount(e.target.value)} className="rounded border px-2 py-1" />
+                    <input placeholder="後五碼" value={transferLast5} onChange={e=>setTransferLast5(e.target.value)} className="rounded border px-2 py-1" />
+                    <div className="col-span-2 text-right">
+                      <button onClick={async()=>{ const { confirmTwice } = await import('../kit'); if(!(await confirmTwice('確認轉帳資訊正確？','確認後將標記為待確認/已收款'))) return; await repos.orderRepo.update(order.id, { paymentStatus: 'pending' }); const o=await repos.orderRepo.get(order.id); setOrder(o); alert('已提交，請技師確認明細後手動改為已收款') }} className="rounded bg-gray-900 px-3 py-1 text-white">二次確認</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 信用卡 / Apple Pay：QR 進入（後續串接金流） */}
+            {(payMethod==='card' || payMethod==='applepay') && (
+              <div className="mt-3 rounded-lg bg-gray-50 p-2">
+                <div className="mb-1">{payMethod==='card' ? '信用卡' : 'Apple Pay'}</div>
+                <div className="text-[12px] text-gray-600">請客戶掃描 QR 後於頁面完成付款（後續串接綠界金流）。</div>
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="rounded border bg-white p-2 text-center text-xs">支付 QR<br/>（示意）</div>
+                  <button onClick={()=>alert('已顯示 QR；完成後請更新付款狀態')} className="rounded bg-brand-500 px-3 py-1 text-white">顯示 QR</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg白 p-4 shadow-card">
+        <SectionTitle>預約資訊</SectionTitle>
+        <div className="mt-3 space-y-2 text-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <div>下單時間：<input type="datetime-local" className="w-full rounded border px-2 py-1" value={createdAtEdit} readOnly /></div>
+            {/* 來源平台已移至頁首，且僅客服/管理員可見 */}
+            <div />
+          </div>
+          <div>服務日期：
+            <div className="mt-1 grid grid-cols-3 gap-2">
+              <input type="date" className="rounded border px-2 py-1" value={dateEdit} disabled={isTechnician} onChange={e=>setDateEdit(e.target.value)} onBlur={async()=>{ if(isTechnician) return; await repos.orderRepo.update(order.id, { preferredDate: dateEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
+              <input type="time" className="rounded border px-2 py-1" value={startEdit} disabled={isTechnician} onChange={e=>setStartEdit(e.target.value)} onBlur={async()=>{ if(isTechnician) return; await repos.orderRepo.update(order.id, { preferredTimeStart: startEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
+              <input type="time" className="rounded border px-2 py-1" value={endEdit} disabled={isTechnician} onChange={e=>setEndEdit(e.target.value)} onBlur={async()=>{ if(isTechnician) return; await repos.orderRepo.update(order.id, { preferredTimeEnd: endEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
+            </div>
+          </div>
+          <div className="text-sm text-gray-700">推薦碼：<span className="font-mono">{order.referrerCode || '-'}</span> {order.referrerCode && (<button className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs" onClick={()=>navigator.clipboard?.writeText(order.referrerCode || '')}>複製</button>)}</div>
+          {/* 移除重複的付款方式/付款狀態；已在「服務內容」底部呈現 */}
+          <div className="text-xs text-gray-700">
+            會員：
+            {can(user,'orders.update') ? (
+              <span className="inline-flex items-center gap-2">
+                <input className="rounded border px-2 py-1 text-sm" placeholder="輸入 MOxxxx" value={memberCode} onChange={e=>setMemberCode(e.target.value)} />
+                <button className="rounded bg-gray-900 px-2 py-1 text-white" onClick={async()=>{
+                  const code = (memberCode||'').trim().toUpperCase()
+                  if (!code) { await repos.orderRepo.update(order.id, { memberId: undefined }); const o=await repos.orderRepo.get(order.id); setOrder(o); alert('已取消綁定') ;return }
+                  if (!code.startsWith('MO')) { alert('請輸入有效的會員編號（MOxxxx）'); return }
+                  try { if(!repos) return; const m = await repos.memberRepo.findByCode(code); if (!m) { alert('查無此會員編號'); return } await repos.orderRepo.update(order.id, { memberId: m.id }); const o=await repos.orderRepo.get(order.id); setOrder(o); alert('已綁定會員：'+(m.name||'') ) } catch { alert('綁定失敗') }
+                }}>儲存</button>
+                {memberCode && <button className="rounded bg-gray-100 px-2 py-1" onClick={()=>navigator.clipboard?.writeText(memberCode)}>複製MO</button>}
+              </span>
+            ) : (
+              <span>{memberCode || '—'}{memberName ? `（${memberName}）` : ''}</span>
+            )}
+          </div>
+          <div className="pt-2">
+            {user?.role!=='technician' && (
+              <Link
+                to={`/schedule?orderId=${order.id}&date=${order.preferredDate||''}&start=${order.preferredTimeStart}&end=${order.preferredTimeEnd}`}
+                className={`inline-block rounded-xl px-4 py-2 text-white ${order.preferredDate && order.preferredTimeStart && order.preferredTimeEnd ? 'bg-brand-500' : 'bg-gray-400 pointer-events-none'}`}
+              >指派技師</Link>
+            )}
+            {order.status==='draft' && can(user,'orders.update') && (
+              <div className="mt-3 text-right">
+                <button
+                  onClick={async()=>{
+                    if(!order.customerName || !order.customerPhone){ alert('請填寫客戶姓名與手機'); return }
+                    if(!order.serviceItems || order.serviceItems.length===0){ alert('請新增至少一個服務項目'); return }
+                    if(!order.preferredDate || !order.preferredTimeStart || !order.preferredTimeEnd){ alert('請填寫服務日期與時段'); return }
+                    const { confirmTwice } = await import('../kit');
+                    if (!(await confirmTwice('確認建單完成？','確認後訂單進入待服務（僅能取消）。是否繼續？'))) return
+                    await repos.orderRepo.confirm(order.id)
+                    const o=await repos.orderRepo.get(order.id); setOrder(o); alert('已確認，待服務')
+                  }}
+                  className="inline-block rounded-xl bg-blue-600 px-4 py-2 text-white"
+                >確認（建單完成）</button>
+              </div>
+            )}
+          </div>
+          {Array.isArray(order.assignedTechnicians) && order.assignedTechnicians.length > 0 && (
+            <div className="mt-2">
+              <div className="font-semibold">已指派技師：</div>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {order.assignedTechnicians.map((n: string, i: number) => {
+                  const t = techs.find((x:any)=> x.name===n)
+                  const label = t ? `${t.name}（${t.code}）· ${(t.region==='all'?'全區':t.region)}` : n
+                  return <span key={i} className="rounded-full bg-brand-100 px-2 py-1 text-xs text-brand-700">{label}</span>
+                })}
+              </div>
+              {/* 簽名與雙簽名區塊 */}
+              <div className="mt-2">
+                <div className="text-sm text-gray-600">簽名</div>
+                <div className="mt-1 grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {/* 技師簽名 */}
+                  <div className="rounded border p-2">
+                    <div className="text-xs text-gray-600">技師簽名</div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <select
+                        className="rounded-lg border px-2 py-1 text-sm"
+                        value={order.signatureTechnician || ''}
+                        onChange={async (e) => {
+                          const val = e.target.value
+                          await repos.orderRepo.update(order.id, { signatureTechnician: val })
+                          const o = await repos.orderRepo.get(order.id)
+                          setOrder(o)
+                        }}
+                      >
+                        <option value="">請選擇</option>
+                        {order.assignedTechnicians.map((n: string, i: number) => (
+                          <option key={i} value={n}>{n}</option>
+                        ))}
+                      </select>
+                      <button onClick={()=>{ setSignAs('technician'); if(!order.signatureTechnician){ alert('請先選擇簽名技師'); return } setSignOpen(true) }} className="rounded bg-gray-900 px-3 py-1 text-white">簽名</button>
+                      {hasTechSignature ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">已簽名</span>
+                      ) : (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">未簽名</span>
+                      )}
+                      {hasTechSignature && (
+                        <button
+                          onClick={async()=>{ const sigs = { ...(order.signatures||{}) }; delete (sigs as any).technician; await repos.orderRepo.update(order.id, { signatures: sigs }); const o = await repos.orderRepo.get(order.id); setOrder(o) }}
+                          className="rounded bg-gray-100 px-2 py-1 text-xs"
+                        >清除</button>
+                      )}
+                    </div>
+                  </div>
+                  {/* 客戶簽名 */}
+                  <div className="rounded border p-2">
+                    <div className="text-xs text-gray-600">客戶簽名</div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <button onClick={()=>{ setSignAs('customer'); setSignOpen(true) }} className="rounded bg-gray-900 px-3 py-1 text-white">簽名</button>
+                      {hasCustomerSignature ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">已簽名</span>
+                      ) : (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">未簽名</span>
+                      )}
+                      {hasCustomerSignature && (
+                        <button
+                          onClick={async()=>{ const sigs = { ...(order.signatures||{}) }; delete (sigs as any).customer; await repos.orderRepo.update(order.id, { signatures: sigs }); const o = await repos.orderRepo.get(order.id); setOrder(o) }}
+                          className="rounded bg-gray-100 px-2 py-1 text-xs"
+                        >清除</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {(!Array.isArray(order.assignedTechnicians) || order.assignedTechnicians.length===0) && (
+            <div className="mt-2 text-xs text-amber-600">目前尚未指派技師</div>
+          )}
+          
+        </div>
+      </div>
+      <SignatureModal open={signOpen} onClose={()=>setSignOpen(false)} onSave={async (dataUrl)=>{
+        const key = signAs==='customer' ? 'customer' : 'technician'
+        // 若是無法服務流程中的客戶簽名，落地後順便更新狀態、品項與備註
+        if (unserviceOpen && key==='customer') {
+          const fare = unserviceFare==='fare400' ? 400 : 0
+          const unserviceItem = { name: '車馬費', quantity: fare>0?1:0, unitPrice: fare, productId: undefined }
+          const nextItems = fare>0 ? [...(order.serviceItems||[]), unserviceItem] : [...(order.serviceItems||[])]
+          const stamp = new Date().toISOString()
+          const noteLines = [
+            `【無法服務】${fare>0?'收取車馬費$400':'不收取車馬費$0'}`,
+            `原因：${unserviceReason}`,
+            `時間：${stamp}`,
+          ]
+          const nextNote = [order.note||'', noteLines.join('\n')].filter(Boolean).join('\n\n')
+          await repos.orderRepo.update(order.id, {
+            signatures: { ...(order.signatures||{}), [key]: dataUrl },
+            status: 'unservice',
+            serviceItems: nextItems,
+            paymentMethod: fare>0 ? (order.paymentMethod||'cash') : (order.paymentMethod||''),
+            paymentStatus: fare>0 ? (order.paymentStatus||'unpaid') : 'nopay',
+            note: nextNote,
+          } as any)
+          setUnserviceOpen(false)
+        } else {
+          await repos.orderRepo.update(order.id, { signatures: { ...(order.signatures||{}), [key]: dataUrl } })
+        }
+        const o = await repos.orderRepo.get(order.id); setOrder(o); setSignOpen(false)
+      }} />
+
+      {/* 服務進度（移至預約資訊下方、服務照片上方） */}
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <SectionTitle>服務進度</SectionTitle>
+        <div className="mt-3 flex flex-col gap-3">
+          {/* 時間顯示 */}
+          <div className="grid grid-cols-1 gap-2 text-sm text-gray-700 md:grid-cols-2">
+            <div>開始時間：<span className="font-mono">{order.workStartedAt ? new Date(order.workStartedAt).toLocaleString() : '—'}</span></div>
+            <div>完成時間：<span className="font-mono">{order.workCompletedAt ? new Date(order.workCompletedAt).toLocaleString() : '—'}</span></div>
+          </div>
+          {order.status==='in_progress' && (
+            <div className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-700">
+              已開始服務；完成前冷卻倒數：
+              <span className="ml-2 rounded bg-white px-2 py-0.5 font-mono">
+                {String(Math.floor(timeLeftSec/60)).padStart(2,'0')}:{String(timeLeftSec%60).padStart(2,'0')}
+              </span>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {order.status==='confirmed' && (
+              <button onClick={()=>setPromiseOpen(true)} className="rounded bg-brand-500 px-3 py-1 text-white">開始服務</button>
+            )}
+            {(order.status==='confirmed' || order.status==='in_progress') && (
+              <button onClick={()=>setUnserviceOpen(true)} className="rounded bg-amber-600 px-3 py-1 text-white">無法服務</button>
+            )}
+            {order.status==='in_progress' && (
+              <button
+                disabled={!canClose}
+                title={canClose?'' : closeDisabledReason}
+                onClick={async()=>{ if(!hasSignature){ alert('請先完成客戶與技師雙簽名'); return } if(!(payStatus==='paid' || payStatus==='nopay')){ alert('請先完成付款或標記不用付款'); return } if(!confirm('是否確認服務完成並結案？')) return; await repos.orderRepo.finishWork(order.id, new Date().toISOString()); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
+                className={`rounded px-3 py-1 text-white ${canClose? 'bg-gray-900' : 'bg-gray-400'}`}
+              >完成服務</button>
+            )}
+          </div>
+        </div>
+      </div>
+      {/* 現金收款簽名（確認收款） */}
+      <SignatureModal open={paySignOpen} onClose={()=>setPaySignOpen(false)} onSave={async (dataUrl)=>{
+        await repos.orderRepo.update(order.id, { signatures: { ...(order.signatures||{}), cashier: dataUrl }, paymentStatus: 'paid' })
+        const o = await repos.orderRepo.get(order.id); setOrder(o); setPaySignOpen(false)
+        alert('已確認收款並完成簽名')
+      }} />
+
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <SectionTitle>服務照片</SectionTitle>
+        <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <div className="mb-1 font-semibold">清洗前 <span className="text-xs text-gray-500">({(order.photosBefore||[]).length}/8)</span></div>
+            <PhotoGrid urls={order.photosBefore || []} />
+            <div className="mt-2 text-sm">
+              <input type="file" accept="image/*" multiple disabled={uploadingBefore} onChange={async (e)=>{
+                const files = Array.from(e.target.files || [])
+                const exist = order.photosBefore?.length || 0
+                const room = Math.max(0, 8 - exist)
+                if (files.length > room) { alert(`清洗前照片上限 8 張，尚可新增 ${room} 張。`); return }
+                const imgs: string[] = []
+                try{
+                  setUploadingBefore(true)
+                  for (const f of files) imgs.push(await compressImageToDataUrl(f, 200))
+                  await repos.orderRepo.update(order.id, { photosBefore: [ ...(order.photosBefore||[]), ...imgs ] })
+                  const o = await repos.orderRepo.get(order.id); setOrder(o)
+                } finally { setUploadingBefore(false) }
+              }} />
+              <div className="mt-1 text-xs text-gray-500">{uploadingBefore?'上傳中… ':''}最多 8 張，單張壓縮後 ≦ 200KB</div>
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 font-semibold">清洗後 <span className="text-xs text-gray-500">({(order.photosAfter||[]).length}/8)</span></div>
+            <PhotoGrid urls={order.photosAfter || []} />
+            <div className="mt-2 text-sm">
+              <input type="file" accept="image/*" multiple disabled={uploadingAfter} onChange={async (e)=>{
+                const files = Array.from(e.target.files || [])
+                const exist = order.photosAfter?.length || 0
+                const room = Math.max(0, 8 - exist)
+                if (files.length > room) { alert(`清洗後照片上限 8 張，尚可新增 ${room} 張。`); return }
+                const imgs: string[] = []
+                try{
+                  setUploadingAfter(true)
+                  for (const f of files) imgs.push(await compressImageToDataUrl(f, 200))
+                  await repos.orderRepo.update(order.id, { photosAfter: [ ...(order.photosAfter||[]), ...imgs ] })
+                  const o = await repos.orderRepo.get(order.id); setOrder(o)
+                } finally { setUploadingAfter(false) }
+              }} />
+              <div className="mt-1 text-xs text-gray-500">{uploadingAfter?'上傳中… ':''}最多 8 張，單張壓縮後 ≦ 200KB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <SectionTitle>服務進度</SectionTitle>
+        <div className="mt-3 flex flex-col gap-3">
+          {/* 倒數提示區：開始服務後顯示 20 分鐘冷卻倒數 */}
+          {order.status==='in_progress' && (
+            <div className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-700">
+              已開始服務；完成前冷卻倒數：
+              <span className="ml-2 rounded bg-white px-2 py-0.5 font-mono">
+                {String(Math.floor(timeLeftSec/60)).padStart(2,'0')}:{String(timeLeftSec%60).padStart(2,'0')}
+              </span>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {order.status==='confirmed' && (
+              <button onClick={()=>setPromiseOpen(true)} className="rounded bg-brand-500 px-3 py-1 text-white">開始服務</button>
+            )}
+            {(order.status==='confirmed' || order.status==='in_progress') && (
+              <button onClick={()=>setUnserviceOpen(true)} className="rounded bg-amber-600 px-3 py-1 text-white">無法服務</button>
+            )}
+            {order.status==='in_progress' && (
+              <button
+                disabled={!canClose}
+                title={canClose?'' : closeDisabledReason}
+                onClick={async()=>{ if(!hasSignature){ alert('請先完成客戶與技師雙簽名'); return } if(payStatus!=='paid'){ alert('請先完成付款'); return } if(!confirm('是否確認服務完成並結案？')) return; await repos.orderRepo.finishWork(order.id, new Date().toISOString()); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
+                className={`rounded px-3 py-1 text-white ${canClose? 'bg-gray-900' : 'bg-gray-400'}`}
+              >結案</button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 底部快速操作列（左：無法服務；右：結案） */}
+      <div className="sticky bottom-0 z-10 mt-8 border-t bg-white/95 px-3 py-3 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-gray-700">
+            <div>
+              小計：<span className="font-semibold">{fmt(subTotal)}</span>
+              ，折抵：<span className="font-semibold">{fmt(order.pointsDeductAmount||0)}</span>
+              ，應付：<span className="font-semibold text-rose-600">{fmt(amountDue)}</span>
+            </div>
+          </div>
+          <div className="flex flex-1 items-center justify-between gap-2 text-sm">
+            <div className="flex items-center gap-2">
+              {(order.status==='confirmed' || order.status==='in_progress') && (
+                <button onClick={()=>setUnserviceOpen(true)} className="rounded bg-amber-600 px-3 py-1 text-white">無法服務</button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+            {order.status==='draft' && can(user,'orders.update') && (
+              <button
+                onClick={async()=>{ const { confirmTwice } = await import('../kit'); if (!(await confirmTwice('確認設為「已確認」？','確認後僅能取消，無法刪除。是否繼續？'))) return; await repos.orderRepo.confirm(order.id); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
+                className="rounded bg-blue-600 px-3 py-1 text-white"
+              >確認</button>
+            )}
+            {user?.role!=='technician' && (
+              <Link to={`/schedule?orderId=${order.id}&date=${order.preferredDate||''}&start=${order.preferredTimeStart}&end=${order.preferredTimeEnd}`} className="rounded bg-brand-500 px-3 py-1 text-white">指派</Link>
+            )}
+            {order.status==='in_progress' && (
+              <button
+                disabled={timeLeftSec>0}
+                onClick={async()=>{ if(!hasSignature){ alert('請先完成簽名（簽名技師＋簽名檔）'); return } if(!confirm('是否確認服務完成？')) return; await repos.orderRepo.finishWork(order.id, new Date().toISOString()); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
+                className={`rounded px-3 py-1 text-white ${timeLeftSec>0? 'bg-gray-400' : 'bg-gray-900'}`}
+              >完成</button>
+            )}
+            {order.status!=='canceled' && can(user,'orders.cancel') && (
+              <button
+                onClick={async()=>{ const { confirmTwice } = await import('../kit'); if(order.status!=='confirmed'){ alert('僅已確認的訂單可以取消'); return } if (!(await confirmTwice('確認要取消此訂單？','取消後需重新下單，仍要取消？'))) return; const reason = prompt('請輸入取消理由：') || ''; if (!reason.trim()) return; await repos.orderRepo.cancel(order.id, reason); const o = await repos.orderRepo.get(order.id); setOrder(o) }}
+                className="rounded bg-rose-500 px-3 py-1 text-white"
+              >取消</button>
+            )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {promiseOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-card">
+            <div className="mb-2 text-lg font-semibold">開始服務前：我們的承諾</div>
+            <div className="text-center">
+              <img
+                alt="我們的承諾 QR"
+                className="mx-auto h-40 w-40 rounded bg-white p-2"
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent('https://www.942clean.com.tw/%E5%86%B7%E6%B0%A3%E6%B8%85%E6%B4%97')}`}
+              />
+              <a
+                href="https://www.942clean.com.tw/%E5%86%B7%E6%B0%A3%E6%B8%85%E6%B4%97"
+                target="_blank" rel="noreferrer"
+                className="mt-2 inline-block text-xs text-brand-600 underline"
+              >前往查看我們的承諾</a>
+            </div>
+            <div className="mt-3 max-h-56 space-y-2 overflow-auto text-left text-sm text-gray-700">
+              <p>一、10年(不含第10年)內機器。保固三個月，保固後三個月內有問題免費前往查看檢測。</p>
+              <p>二、13年(不含第13年)內機器。保固三個月，保固期內若已無法維修提供換機購物金。</p>
+              <p>三、13年以上機器，無法提供保固及購物金，請見諒。</p>
+              <p>免責1：現場技師判斷機況較差，可能會婉拒施作，避免後續爭議。</p>
+              <p>免責2：10年以上機器，部分塑料配件可能脆化導致斷裂，在可正常運作下不在保固範圍。</p>
+              <p>免責3：家電機齡以製造年月起算，無法查看者可能以13年以上計。</p>
+              <p>免責4：排水管高壓沖洗疏通，如因堵塞導致滴水，不在保固範圍。</p>
+            </div>
+            <div className="mt-3 flex justify-between gap-2">
+              <button onClick={()=>setPromiseOpen(false)} className="rounded bg-gray-100 px-3 py-1">取消</button>
+              <button onClick={async()=>{ setPromiseOpen(false); const nowIso=new Date().toISOString(); await repos.orderRepo.startWork(order.id, nowIso); const o=await repos.orderRepo.get(order.id); setOrder(o); try{ alert('已開始服務：'+ new Date(nowIso).toLocaleString()) }catch{} }} className="rounded bg-brand-500 px-3 py-1 text-white">我知道了，開始</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {unserviceOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-card">
+            <div className="text-lg font-semibold">無法服務</div>
+            <div className="mt-2 text-sm text-gray-700">請選擇車馬費：</div>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+              <button onClick={()=>setUnserviceFare('none')} className={`rounded px-3 py-2 ${unserviceFare==='none'?'bg-amber-600 text-white':'bg-gray-100'}`}>不收取（$0）</button>
+              <button onClick={()=>setUnserviceFare('fare400')} className={`rounded px-3 py-2 ${unserviceFare==='fare400'?'bg-amber-600 text-white':'bg-gray-100'}`}>收取（$400）</button>
+            </div>
+            <div className="mt-3 text-sm text-gray-700">請填寫原因：</div>
+            <textarea value={unserviceReason} onChange={e=>setUnserviceReason(e.target.value)} rows={3} className="mt-1 w-full rounded border px-2 py-1 text-sm" placeholder="例如：現場設備故障/客戶臨時不在等" />
+            <div className="mt-3 flex justify-between gap-2">
+              <button onClick={()=>setUnserviceOpen(false)} className="rounded bg-gray-100 px-3 py-1">取消</button>
+              <button onClick={async()=>{ if(!unserviceReason.trim()){ alert('請填寫原因'); return } setSignAs('customer'); setSignOpen(true) }} className="rounded bg-amber-600 px-3 py-1 text-white">客戶簽名確認</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+

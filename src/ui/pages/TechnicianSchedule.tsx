@@ -204,10 +204,10 @@ export default function TechnicianSchedulePage() {
             {/* 月曆顯示 */}
             <div className="mt-4">
               <Calendar
-                date={date}
-                onDateChange={setDate}
-                onMonthChange={async (newDate) => {
-                  const yymm = newDate.slice(0, 7)
+                value={date}
+                onChange={(newDate) => navigate(`/schedule?date=${newDate}`)}
+                onMonthChange={async (year, month) => {
+                  const yymm = `${year}-${String(month + 1).padStart(2, '0')}`
                   const startMonth = `${yymm}-01`
                   const endMonth = `${yymm}-31`
                   if(!repos) return
@@ -220,7 +220,7 @@ export default function TechnicianSchedulePage() {
                   setLeaves(ls.filter((l: any) => (l.technicianEmail || '').toLowerCase() === userEmail))
                 }}
                 markers={workMarkers}
-                emphasisMarkers={emphasisMarkers}
+                emphasis={emphasisMarkers}
                 tooltips={dayTooltips}
                 onDayHover={setHoverDate}
                 onDayLeave={() => setHoverDate('')}
@@ -290,10 +290,10 @@ export default function TechnicianSchedulePage() {
             {/* 月曆顯示 */}
             <div className="mt-4">
               <Calendar
-                date={date}
-                onDateChange={setDate}
-                onMonthChange={async (newDate) => {
-                  const yymm = newDate.slice(0, 7)
+                value={date}
+                onChange={(newDate) => navigate(`/schedule?date=${newDate}`)}
+                onMonthChange={async (year, month) => {
+                  const yymm = `${year}-${String(month + 1).padStart(2, '0')}`
                   const startMonth = `${yymm}-01`
                   const endMonth = `${yymm}-31`
                   if(!repos) return
@@ -305,7 +305,7 @@ export default function TechnicianSchedulePage() {
                   setLeaves(ls)
                 }}
                 markers={workMarkers}
-                emphasisMarkers={emphasisMarkers}
+                emphasis={emphasisMarkers}
                 tooltips={dayTooltips}
                 onDayHover={setHoverDate}
                 onDayLeave={() => setHoverDate('')}

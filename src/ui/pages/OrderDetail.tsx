@@ -97,8 +97,6 @@ export default function PageOrderDetail() {
     (order.status==='in_progress' || order.status==='unservice') &&
     timeLeftSec===0 &&
     hasSignature &&
-    (!!payMethod || payStatus==='nopay') &&
-    (payStatus==='paid' || payStatus==='nopay') &&
     requirePhotosOk
   )
   const closeDisabledReason = (()=>{
@@ -194,29 +192,45 @@ export default function PageOrderDetail() {
           )}
           {user?.role!=='technician' && <div className="mt-2 text-right"><button onClick={()=>setEditItems(e=>!e)} className="rounded bg-gray-100 px-2 py-1 text-xs">{editItems?'取消':'編輯項目'}</button></div>}
 
-          {/* 積分抵扣區 */}
-          <div className="mt-4 rounded border p-2 text-xs text-gray-700">
-            <div className="mb-2 font-semibold">積分抵扣</div>
-            <div className="grid grid-cols-3 gap-2">
-              <div>可用積分：<span className="font-mono">{memberPoints}</span></div>
-              <div>
-                使用積分：
-                <span className="inline-flex items-center gap-2">
-                  <input type="number" className="w-24 rounded border px-2 py-1" value={order.pointsUsed||0} onChange={async e=>{
-                    const raw = Number(e.target.value)||0
-                    const clamped = Math.max(0, Math.min(memberPoints, raw))
-                    await repos.orderRepo.update(order.id,{ pointsUsed: clamped })
-                    const o=await repos.orderRepo.get(order.id); setOrder(o)
-                  }} />
-                  <button onClick={async()=>{ const all = Math.max(0, memberPoints|0); await repos.orderRepo.update(order.id,{ pointsUsed: all }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} className="rounded bg-gray-100 px-2 py-0.5">全部使用</button>
-                </span>
+          {/* 積分抵扣 */}
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-gray-700">積分抵扣</div>
+            <div className="rounded-lg bg-gray-50 p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span>可用積分：</span>
+                <span className="font-semibold text-brand-600">{memberPoints}</span>
               </div>
-              <div>折抵金額：<input type="number" className="w-24 rounded border px-2 py-1" value={order.pointsDeductAmount||0} onChange={async e=>{ const raw=Number(e.target.value)||0; const amt=Math.max(0, Math.min(subTotal, raw)); await repos.orderRepo.update(order.id,{ pointsDeductAmount: amt }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
-            </div>
-            <div className="mt-2 text-right">
-              <div>小計：{fmt(subTotal)}</div>
-              <div>折抵：-{fmt(order.pointsDeductAmount||0)}</div>
-              <div className="text-rose-600">應付：<span className="text-base font-semibold">{fmt(amountDue)}</span></div>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-sm">使用積分：</span>
+                <input
+                  type="number"
+                  min="0"
+                  max={memberPoints}
+                  value={order.pointsUsed || 0}
+                  onChange={async (e) => {
+                    const value = Math.min(Number(e.target.value), memberPoints)
+                    await repos.orderRepo.update(order.id, { pointsUsed: value, pointsDeductAmount: value * 10 })
+                    const o = await repos.orderRepo.get(order.id)
+                    setOrder(o)
+                  }}
+                  className="w-20 rounded border px-2 py-1 text-sm"
+                />
+                <button
+                  onClick={async () => {
+                    const maxPoints = memberPoints
+                    await repos.orderRepo.update(order.id, { pointsUsed: maxPoints, pointsDeductAmount: maxPoints * 10 })
+                    const o = await repos.orderRepo.get(order.id)
+                    setOrder(o)
+                  }}
+                  className="rounded bg-brand-100 px-2 py-1 text-xs text-brand-700 hover:bg-brand-200"
+                >
+                  全部使用
+                </button>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span>折抵金額：</span>
+                <span className="font-semibold text-rose-600">-${order.pointsDeductAmount || 0}</span>
+              </div>
             </div>
           </div>
 
@@ -303,303 +317,130 @@ export default function PageOrderDetail() {
         </div>
       </div>
 
-      {/* 備註區 */}
-      <div className="rounded-2xl bg-white p-4 shadow-card">
-        <SectionTitle>備註</SectionTitle>
-        <div className="mt-2 text-sm">
-          <textarea
-            className="w-full rounded-lg border px-3 py-2"
-            placeholder="輸入備註（無法服務選項/原因/客戶簽名等會自動寫入）"
-            rows={4}
-            value={note}
-            onChange={e=>setNote(e.target.value)}
-            onBlur={async()=>{ await repos.orderRepo.update(order.id, { note }); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
-          />
-        </div>
-      </div>
-
-      <div className="rounded-2xl bg-white p-4 shadow-card">
-        <SectionTitle>預約資訊</SectionTitle>
-        <div className="mt-3 space-y-2 text-sm">
-          <div className="grid grid-cols-2 gap-2">
-            <div>下單時間：<input type="datetime-local" className="w-full rounded border px-2 py-1" value={createdAtEdit} readOnly /></div>
-            {/* 來源平台已移至頁首，且僅客服/管理員可見 */}
-            <div />
-          </div>
-          <div>服務日期：
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              <input type="date" className="rounded border px-2 py-1" value={dateEdit} disabled={isTechnician} onChange={e=>setDateEdit(e.target.value)} onBlur={async()=>{ if(isTechnician) return; await repos.orderRepo.update(order.id, { preferredDate: dateEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
-              <input type="time" className="rounded border px-2 py-1" value={startEdit} disabled={isTechnician} onChange={e=>setStartEdit(e.target.value)} onBlur={async()=>{ if(isTechnician) return; await repos.orderRepo.update(order.id, { preferredTimeStart: startEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
-              <input type="time" className="rounded border px-2 py-1" value={endEdit} disabled={isTechnician} onChange={e=>setEndEdit(e.target.value)} onBlur={async()=>{ if(isTechnician) return; await repos.orderRepo.update(order.id, { preferredTimeEnd: endEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
-            </div>
-          </div>
-          <div className="text-sm text-gray-700">推薦碼：<span className="font-mono">{order.referrerCode || '-'}</span> {order.referrerCode && (<button className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs" onClick={()=>navigator.clipboard?.writeText(order.referrerCode || '')}>複製</button>)}</div>
-          {/* 移除重複的付款方式/付款狀態；已在「服務內容」底部呈現 */}
-          <div className="text-xs text-gray-700">
-            會員：
-            {can(user,'orders.update') ? (
-              <span className="inline-flex items-center gap-2">
-                <input className="rounded border px-2 py-1 text-sm" placeholder="輸入 MOxxxx" value={memberCode} onChange={e=>setMemberCode(e.target.value)} />
-                <button className="rounded bg-gray-900 px-2 py-1 text-white" onClick={async()=>{
-                  const code = (memberCode||'').trim().toUpperCase()
-                  if (!code) { await repos.orderRepo.update(order.id, { memberId: undefined }); const o=await repos.orderRepo.get(order.id); setOrder(o); alert('已取消綁定') ;return }
-                  if (!code.startsWith('MO')) { alert('請輸入有效的會員編號（MOxxxx）'); return }
-                  try { if(!repos) return; const m = await repos.memberRepo.findByCode(code); if (!m) { alert('查無此會員編號'); return } await repos.orderRepo.update(order.id, { memberId: m.id }); const o=await repos.orderRepo.get(order.id); setOrder(o); alert('已綁定會員：'+(m.name||'') ) } catch { alert('綁定失敗') }
-                }}>儲存</button>
-                {memberCode && <button className="rounded bg-gray-100 px-2 py-1" onClick={()=>navigator.clipboard?.writeText(memberCode)}>複製MO</button>}
-              </span>
-            ) : (
-              <span>{memberCode || '—'}{memberName ? `（${memberName}）` : ''}</span>
-            )}
-          </div>
-          <div className="pt-2">
-            {user?.role!=='technician' && (
-              <Link
-                to={`/schedule?orderId=${order.id}&date=${order.preferredDate||''}&start=${order.preferredTimeStart}&end=${order.preferredTimeEnd}`}
-                className={`inline-block rounded-xl px-4 py-2 text-white ${order.preferredDate && order.preferredTimeStart && order.preferredTimeEnd ? 'bg-brand-500' : 'bg-gray-400 pointer-events-none'}`}
-              >指派技師</Link>
-            )}
-            {order.status==='draft' && can(user,'orders.update') && (
-              <div className="mt-3 text-right">
-                <button
-                  onClick={async()=>{
-                    if(!order.customerName || !order.customerPhone){ alert('請填寫客戶姓名與手機'); return }
-                    if(!order.serviceItems || order.serviceItems.length===0){ alert('請新增至少一個服務項目'); return }
-                    if(!order.preferredDate || !order.preferredTimeStart || !order.preferredTimeEnd){ alert('請填寫服務日期與時段'); return }
-                    const { confirmTwice } = await import('../kit');
-                    if (!(await confirmTwice('確認建單完成？','確認後訂單進入待服務（僅能取消）。是否繼續？'))) return
-                    await repos.orderRepo.confirm(order.id)
-                    const o=await repos.orderRepo.get(order.id); setOrder(o); alert('已確認，待服務')
-                  }}
-                  className="inline-block rounded-xl bg-blue-600 px-4 py-2 text-white"
-                >確認（建單完成）</button>
-              </div>
-            )}
-          </div>
-          {Array.isArray(order.assignedTechnicians) && order.assignedTechnicians.length > 0 && (
-            <div className="mt-2">
-              <div className="font-semibold">已指派技師：</div>
-              <div className="mt-1 flex flex-wrap gap-2">
-                {order.assignedTechnicians.map((n: string, i: number) => {
-                  return <span key={i} className="rounded-full bg-brand-100 px-2 py-1 text-xs text-brand-700">{n}</span>
-                })}
-              </div>
-              
-              {/* 訂單狀態下拉選單 */}
-              <div className="mt-3">
-                <div className="text-sm text-gray-600">訂單狀態：</div>
-                <select 
-                  className="mt-1 rounded border px-2 py-1 text-sm" 
-                  value={order.status} 
-                  onChange={async (e) => {
-                    const newStatus = e.target.value
-                    await repos.orderRepo.update(order.id, { status: newStatus })
-                    const o = await repos.orderRepo.get(order.id)
-                    setOrder(o)
-                  }}
-                  disabled={hasCustomerSignature} // 客戶簽名後鎖定
-                >
-                  <option value="draft">草稿</option>
-                  <option value="confirmed">已確認</option>
-                  <option value="in_progress">待服務</option>
-                  <option value="completed">已完成</option>
-                  <option value="canceled">已取消</option>
-                  <option value="unservice">無法服務</option>
-                </select>
-              </div>
-              
-              {/* 簽名與雙簽名區塊 */}
-              <div className="mt-2">
-                <div className="text-sm text-gray-600">簽名</div>
-                <div className="mt-1 grid grid-cols-1 gap-2 md:grid-cols-2">
-                  {/* 技師簽名 */}
-                  <div className="rounded border p-2">
-                    <div className="text-xs text-gray-600">技師簽名</div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <select
-                        className="rounded-lg border px-2 py-1 text-sm"
-                        value={order.signatureTechnician || ''}
-                        onChange={async (e) => {
-                          const val = e.target.value
-                          await repos.orderRepo.update(order.id, { signatureTechnician: val })
-                          const o = await repos.orderRepo.get(order.id)
-                          setOrder(o)
-                        }}
-                        disabled={hasTechSignature} // 簽名後不可更改
-                      >
-                        <option value="">請選擇</option>
-                        {order.assignedTechnicians.map((n: string, i: number) => (
-                          <option key={i} value={n}>{n}</option>
-                        ))}
-                      </select>
-                      <button 
-                        onClick={()=>{ 
-                          setSignAs('technician'); 
-                          if(!order.signatureTechnician){ alert('請先選擇簽名技師'); return } 
-                          setSignOpen(true) 
-                        }} 
-                        className="rounded bg-gray-900 px-3 py-1 text-white"
-                        disabled={hasTechSignature} // 簽名後不可再簽
-                      >
-                        簽名
-                      </button>
-                      {hasTechSignature ? (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">已簽名</span>
-                      ) : (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">未簽名</span>
-                      )}
-                    </div>
-                  </div>
-                  {/* 客戶簽名 */}
-                  <div className="rounded border p-2">
-                    <div className="text-xs text-gray-600">客戶簽名</div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <button 
-                        onClick={()=>{ setSignAs('customer'); setSignOpen(true) }} 
-                        className="rounded bg-gray-900 px-3 py-1 text-white"
-                        disabled={hasCustomerSignature} // 簽名後不可再簽
-                      >
-                        簽名
-                      </button>
-                      {hasCustomerSignature ? (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">已簽名</span>
-                      ) : (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">未簽名</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          {(!Array.isArray(order.assignedTechnicians) || order.assignedTechnicians.length===0) && (
-            <div className="mt-2 text-xs text-amber-600">目前尚未指派技師</div>
-          )}
-          
-        </div>
-      </div>
-
-      <SignatureModal open={signOpen} onClose={()=>setSignOpen(false)} onSave={async (dataUrl)=>{
-        const key = signAs==='customer' ? 'customer' : 'technician'
-        // 若是無法服務流程中的客戶簽名，落地後順便更新狀態、品項與備註
-        if (unserviceOpen && key==='customer') {
-          const fare = unserviceFare==='fare400' ? 400 : 0
-          const unserviceItem = { name: '車馬費', quantity: fare>0?1:0, unitPrice: fare, productId: undefined }
-          const nextItems = fare>0 ? [...(order.serviceItems||[]), unserviceItem] : [...(order.serviceItems||[])]
-          const stamp = new Date().toISOString()
-          const noteLines = [
-            `【無法服務】${fare>0?'收取車馬費$400':'不收取車馬費$0'}`,
-            `原因：${unserviceReason}`,
-            `時間：${stamp}`,
-          ]
-          const nextNote = [order.note||'', noteLines.join('\n')].filter(Boolean).join('\n\n')
-          await repos.orderRepo.update(order.id, {
-            signatures: { ...(order.signatures||{}), [key]: dataUrl },
-            status: 'unservice',
-            serviceItems: nextItems,
-            paymentMethod: fare>0 ? (order.paymentMethod||'cash') : (order.paymentMethod||''),
-            paymentStatus: fare>0 ? (order.paymentStatus||'unpaid') : 'nopay',
-            note: nextNote,
-          } as any)
-          setUnserviceOpen(false)
-        } else {
-          await repos.orderRepo.update(order.id, { signatures: { ...(order.signatures||{}), [key]: dataUrl } })
-        }
-        const o = await repos.orderRepo.get(order.id); setOrder(o); setSignOpen(false)
-      }} />
-
-      {/* 服務進度（移至預約資訊下方、服務照片上方） */}
-      <div className="rounded-2xl bg-white p-4 shadow-card">
-        <SectionTitle>服務進度</SectionTitle>
-        <div className="mt-3 flex flex-col gap-3">
-          {/* 時間顯示 */}
-          <div className="grid grid-cols-1 gap-2 text-sm text-gray-700 md:grid-cols-2">
-            <div>開始時間：<span className="font-mono">{order.workStartedAt ? new Date(order.workStartedAt).toLocaleString() : '—'}</span></div>
-            <div>完成時間：<span className="font-mono">{order.workCompletedAt ? new Date(order.workCompletedAt).toLocaleString() : '—'}</span></div>
-          </div>
-          {order.status==='in_progress' && (
-            <div className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-700">
-              已開始服務；完成前冷卻倒數：
-              <span className="ml-2 rounded bg-white px-2 py-0.5 font-mono">
-                {String(Math.floor(timeLeftSec/60)).padStart(2,'0')}:{String(timeLeftSec%60).padStart(2,'0')}
-              </span>
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            {order.status==='confirmed' && (
-              <button onClick={()=>setPromiseOpen(true)} className="rounded bg-brand-500 px-3 py-1 text-white">開始服務</button>
-            )}
-            {(order.status==='confirmed' || order.status==='in_progress') && (
-              <button onClick={()=>setUnserviceOpen(true)} className="rounded bg-amber-600 px-3 py-1 text-white">無法服務</button>
-            )}
-            {order.status==='in_progress' && (
-              <button
-                disabled={!canClose}
-                title={canClose?'' : closeDisabledReason}
-                onClick={async()=>{ 
-                  if(!hasSignature){ alert('請先完成客戶與技師雙簽名'); return } 
-                  if(!(payStatus==='paid' || payStatus==='nopay')){ alert('請先完成付款或標記不用付款'); return } 
-                  if(!confirm('是否確認服務完成並結案？')) return; 
-                  await repos.orderRepo.finishWork(order.id, new Date().toISOString()); 
-                  const o=await repos.orderRepo.get(order.id); setOrder(o) 
-                }}
-                className={`rounded px-3 py-1 text-white ${canClose? 'bg-gray-900' : 'bg-gray-400'}`}
-              >完成服務</button>
-            )}
-          </div>
-        </div>
-      </div>
-      {/* 現金收款簽名（確認收款） */}
-      <SignatureModal open={paySignOpen} onClose={()=>setPaySignOpen(false)} onSave={async (dataUrl)=>{
-        await repos.orderRepo.update(order.id, { signatures: { ...(order.signatures||{}), cashier: dataUrl }, paymentStatus: 'paid' })
-        const o = await repos.orderRepo.get(order.id); setOrder(o); setPaySignOpen(false)
-        alert('已確認收款並完成簽名')
-      }} />
-
+      {/* 服務照片 */}
       <div className="rounded-2xl bg-white p-4 shadow-card">
         <SectionTitle>服務照片</SectionTitle>
-        <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="mt-3 space-y-4">
+          {/* 服務前照片 */}
           <div>
-            <div className="mb-1 font-semibold">清洗前 <span className="text-xs text-gray-500">({(order.photosBefore||[]).length}/8)</span></div>
-            <PhotoGrid urls={order.photosBefore || []} />
-            <div className="mt-2 text-sm">
-              <input type="file" accept="image/*" multiple disabled={uploadingBefore} onChange={async (e)=>{
-                const files = Array.from(e.target.files || [])
-                const exist = order.photosBefore?.length || 0
-                const room = Math.max(0, 8 - exist)
-                if (files.length > room) { alert(`清洗前照片上限 8 張，尚可新增 ${room} 張。`); return }
-                const imgs: string[] = []
-                try{
-                  setUploadingBefore(true)
-                  for (const f of files) imgs.push(await compressImageToDataUrl(f, 200))
-                  await repos.orderRepo.update(order.id, { photosBefore: [ ...(order.photosBefore||[]), ...imgs ] })
-                  const o = await repos.orderRepo.get(order.id); setOrder(o)
-                } finally { setUploadingBefore(false) }
-              }} />
-              <div className="mt-1 text-xs text-gray-500">{uploadingBefore?'上傳中… ':''}最多 8 張，單張壓縮後 ≦ 200KB</div>
+            <div className="text-sm font-medium text-gray-700">服務前照片</div>
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="relative aspect-square rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const compressed = await compressImageToDataUrl(file, 200)
+                      const next = [...(order.photosBefore || [])]
+                      next[i] = compressed
+                      await repos.orderRepo.update(order.id, { photosBefore: next })
+                      const o = await repos.orderRepo.get(order.id)
+                      setOrder(o)
+                    }}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                    disabled={uploadingBefore}
+                  />
+                  {order.photosBefore?.[i] ? (
+                    <img src={order.photosBefore[i]} alt={`Before ${i + 1}`} className="h-full w-full rounded-lg object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-xs text-gray-400">
+                      {uploadingBefore ? '上傳中...' : `前${i + 1}`}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
+            <div className="mt-1 text-xs text-gray-500">服務前照片 ({order.photosBefore?.filter(Boolean).length || 0}/8)</div>
           </div>
+
+          {/* 服務後照片 */}
           <div>
-            <div className="mb-1 font-semibold">清洗後 <span className="text-xs text-gray-500">({(order.photosAfter||[]).length}/8)</span></div>
-            <PhotoGrid urls={order.photosAfter || []} />
-            <div className="mt-2 text-sm">
-              <input type="file" accept="image/*" multiple disabled={uploadingAfter} onChange={async (e)=>{
-                const files = Array.from(e.target.files || [])
-                const exist = order.photosAfter?.length || 0
-                const room = Math.max(0, 8 - exist)
-                if (files.length > room) { alert(`清洗後照片上限 8 張，尚可新增 ${room} 張。`); return }
-                const imgs: string[] = []
-                try{
-                  setUploadingAfter(true)
-                  for (const f of files) imgs.push(await compressImageToDataUrl(f, 200))
-                  await repos.orderRepo.update(order.id, { photosAfter: [ ...(order.photosAfter||[]), ...imgs ] })
-                  const o = await repos.orderRepo.get(order.id); setOrder(o)
-                } finally { setUploadingAfter(false) }
-              }} />
-              <div className="mt-1 text-xs text-gray-500">{uploadingAfter?'上傳中… ':''}最多 8 張，單張壓縮後 ≦ 200KB</div>
+            <div className="text-sm font-medium text-gray-700">服務後照片</div>
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="relative aspect-square rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const compressed = await compressImageToDataUrl(file, 200)
+                      const next = [...(order.photosAfter || [])]
+                      next[i] = compressed
+                      await repos.orderRepo.update(order.id, { photosAfter: next })
+                      const o = await repos.orderRepo.get(order.id)
+                      setOrder(o)
+                    }}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                    disabled={uploadingAfter}
+                  />
+                  {order.photosAfter?.[i] ? (
+                    <img src={order.photosAfter[i]} alt={`After ${i + 1}`} className="h-full w-full rounded-lg object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-xs text-gray-400">
+                      {uploadingAfter ? '上傳中...' : `後${i + 1}`}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
+            <div className="mt-1 text-xs text-gray-500">服務後照片 ({order.photosAfter?.filter(Boolean).length || 0}/8)</div>
           </div>
         </div>
+        
+        {/* 結案按鈕 */}
+        {order.status === 'in_progress' && (
+          <div className="mt-4 flex justify-center">
+            <button
+              disabled={!canClose}
+              title={canClose ? '' : closeDisabledReason}
+              onClick={async () => {
+                if (!hasSignature) { alert('請先完成客戶與技師雙簽名'); return }
+                if (!confirm('是否確認服務完成並結案？')) return
+                await repos.orderRepo.finishWork(order.id, new Date().toISOString())
+                const o = await repos.orderRepo.get(order.id)
+                setOrder(o)
+              }}
+              className={`rounded-xl px-6 py-2 text-white ${canClose ? 'bg-gray-900' : 'bg-gray-400'}`}
+            >
+              結案
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 備註欄位 */}
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <SectionTitle>備註</SectionTitle>
+        <div className="mt-3">
+          <textarea
+            value={order.note || ''}
+            onChange={async (e) => {
+              await repos.orderRepo.update(order.id, { note: e.target.value })
+              const o = await repos.orderRepo.get(order.id)
+              setOrder(o)
+            }}
+            placeholder="請輸入備註內容..."
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+            rows={4}
+          />
+        </div>
+        
+        {/* 無法服務按鈕 */}
+        {user?.role !== 'technician' && (
+          <div className="mt-3 text-right">
+            <button 
+              onClick={() => setUnserviceOpen(true)} 
+              className="rounded bg-amber-600 px-3 py-1 text-white"
+            >
+              無法服務
+            </button>
+          </div>
+        )}
       </div>
 
       {promiseOpen && (

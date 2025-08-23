@@ -1343,6 +1343,95 @@ class SophiaDesktop:
         help_text_widget.insert(tk.END, help_text)
         help_text_widget.configure(state='disabled')  # 只讀
     
+    # === 供 AI 對話模組呼叫的動作方法 ===
+    def search_files(self, keywords: str, extensions=None, max_results: int = 10):
+        """在當前資料夾遞迴搜尋符合關鍵字與副檔名的檔案。
+
+        keywords: 以空白分隔的關鍵字（全部需匹配於檔名，不分大小寫）
+        extensions: 可接受的副檔名清單（如 ['.xlsx', '.xls']），為 None 表示不限制
+        """
+        try:
+            tokens = [t for t in (keywords or '').split() if t]
+            results = []
+            for root, dirs, files in os.walk(self.current_dir):
+                for fname in files:
+                    fpath = Path(root) / fname
+                    if extensions and fpath.suffix.lower() not in [e.lower() for e in extensions]:
+                        continue
+                    name_lower = fname.lower()
+                    if all(t.lower() in name_lower for t in tokens):
+                        results.append(fpath)
+                        if len(results) >= max_results:
+                            return results
+            return results
+        except Exception:
+            return []
+
+    def clean_data_silent(self):
+        """靜默模式的數據清理（不彈視窗、回傳摘要字串）。"""
+        if self.df is None:
+            raise Exception("尚未載入任何資料表")
+        original_shape = self.df.shape
+        cleaned_df = self.df.copy()
+
+        # 移除重複行
+        duplicates_before = cleaned_df.duplicated().sum()
+        cleaned_df = cleaned_df.drop_duplicates()
+
+        # 處理缺失值
+        missing_before = cleaned_df.isnull().sum().sum()
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        for col in numeric_cols:
+            if cleaned_df[col].isnull().sum() > 0:
+                cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
+        text_cols = cleaned_df.select_dtypes(include=['object']).columns
+        for col in text_cols:
+            if cleaned_df[col].isnull().sum() > 0:
+                mode_val = cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else "未知"
+                cleaned_df[col].fillna(mode_val, inplace=True)
+
+        # 更新 df
+        self.df = cleaned_df
+        self.show_dataframe_in_treeview(self.df)
+
+        missing_after = cleaned_df.isnull().sum().sum()
+        report = (
+            f"🧹 數據清理完成\n"
+            f"• 原始資料: {original_shape[0]} 行 × {original_shape[1]} 欄\n"
+            f"• 去重筆數: {duplicates_before}\n"
+            f"• 填補缺失: {missing_before - missing_after}\n"
+            f"• 現況缺失: {missing_after}\n"
+        )
+        return report
+
+    def create_charts_silent(self, kind: str = 'auto'):
+        """靜默生成基本圖表（於圖表分頁顯示，不另開視窗），回傳摘要字串。"""
+        if self.df is None:
+            raise Exception("尚未載入任何資料表")
+        # 直接重用現有的圖表流程
+        self.create_chart(None)
+        return "📈 已生成圖表"
+
+    def export_current_df_to_excel(self, filename: str = '分析結果.xlsx'):
+        """將目前的 DataFrame 匯出到當前資料夾，回傳輸出路徑。"""
+        if self.df is None:
+            raise Exception("尚未載入任何資料表")
+        out_path = self.current_dir / filename
+        self.df.to_excel(out_path, index=False, engine='openpyxl')
+        return str(out_path)
+
+    def open_in_excel_app(self):
+        """使用系統的 Excel 開啟當前檔案（若有）。"""
+        if not self.current_file or not self.current_file.exists():
+            raise Exception("尚未有已開啟的檔案可用 Excel 開啟")
+        try:
+            if sys.platform.startswith('win'):
+                os.startfile(self.current_file)  # type: ignore[attr-defined]
+            else:
+                subprocess.Popen(['open', str(self.current_file)])
+        except Exception as e:
+            raise Exception(f"開啟 Excel 失敗: {e}")
+    
     def open_ai_chat(self):
         """開啟AI對話功能"""
         if not AI_CHAT_AVAILABLE:

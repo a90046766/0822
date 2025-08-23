@@ -111,9 +111,10 @@ export default function PageOrderDetail() {
   })()
   return (
     <div className="space-y-6">
-      <div className="rounded-xl bg-amber-50 p-3 text-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="font-semibold">{order.serviceItems?.[0]?.name || '服務內容'}</div>
+      {/* 移除上方黃色區塊，直接顯示訂單狀態 */}
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <div className="flex items-center justify-between">
+          <SectionTitle>客戶資料</SectionTitle>
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px]">{order.id}</span>
             {/* 來源平台：僅客服/管理員顯示（技師/客戶不顯示） */}
@@ -123,6 +124,7 @@ export default function PageOrderDetail() {
             {(() => { const kind: 'done'|'paid'|'pending' = (order.status==='completed' ? 'done' : 'pending'); return <StatusChip kind={kind} text={statusText(order.status)} /> })()}
           </div>
         </div>
+        
         {/* 來源平台調整到上方（僅客服/管理員可修改） */}
         {isAdminOrSupport && (
           <div className="mt-2 text-xs text-gray-600">
@@ -132,64 +134,17 @@ export default function PageOrderDetail() {
             </select>
           </div>
         )}
-        <div className="mt-1 text-xs text-gray-600">
-          會員：{memberCode ? (<>
-            {memberCode}{memberName ? `（${memberName}）` : ''}
-            <button className="ml-2 rounded bg-gray-100 px-1.5 py-0.5" onClick={()=>navigator.clipboard?.writeText(memberCode)}>複製MO</button>
-          </>) : '—'}
-        </div>
-      </div>
-
-      {/* 備註區 */}
-      <div className="rounded-2xl bg-white p-4 shadow-card">
-        <SectionTitle>備註</SectionTitle>
-        <div className="mt-2 text-sm">
-          <textarea
-            className="w-full rounded-lg border px-3 py-2"
-            placeholder="輸入備註（無法服務選項/原因/客戶簽名等會自動寫入）"
-            rows={4}
-            value={note}
-            onChange={e=>setNote(e.target.value)}
-            onBlur={async()=>{ await repos.orderRepo.update(order.id, { note }); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center justify-end gap-2">
-        {order.status !== 'canceled' && can(user,'orders.cancel') && (
-          <button
-            className="rounded-xl bg-rose-500 px-4 py-2 text-white"
-            onClick={async()=>{
-              const { confirmTwice } = await import('../kit')
-              if(order.status!=='confirmed'){ alert('僅已確認的訂單可以取消'); return }
-              if (!(await confirmTwice('確認要取消此訂單？','取消後需重新下單，仍要取消？'))) return
-              const reason = prompt('請輸入取消理由：') || ''
-              if (!reason.trim()) return
-              await repos.orderRepo.cancel(order.id, reason)
-              const o = await repos.orderRepo.get(order.id); setOrder(o)
-              alert('已取消')
-            }}
-          >取消訂單</button>
-        )}
-        {order.status === 'draft' && can(user,'orders.delete') && (
-          <button
-            className="rounded-xl bg-gray-900 px-4 py-2 text-white"
-            onClick={async()=>{
-              const { confirmTwice } = await import('../kit')
-              if (!(await confirmTwice('確認要刪除此草稿訂單？','刪除後無法復原，仍要刪除？'))) return
-              const reason = prompt('請輸入刪除理由：') || ''
-              if (!reason.trim()) return
-              try { await repos.orderRepo.delete(order.id, reason); alert('已刪除'); window.history.back() } catch (e:any) { alert(e?.message||'刪除失敗') }
-            }}
-          >刪除（草稿）</button>
-        )}
-      </div>
-
-      <div className="rounded-2xl bg-white p-4 shadow-card">
-        <SectionTitle>客戶資料</SectionTitle>
+        
         <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
           <div>姓名：<input className="w-full rounded border px-2 py-1" value={order.customerName||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerName:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
           <div>手機：<div className="flex gap-2"><input className="w-full rounded border px-2 py-1" value={order.customerPhone||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerPhone:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /><a href={`tel:${order.customerPhone}`} className="rounded bg-brand-500 px-3 py-1 text-white">撥打</a></div></div>
+          <div>信箱：<input className="w-full rounded border px-2 py-1" value={order.customerEmail||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerEmail:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
+          <div>抬頭：<input className="w-full rounded border px-2 py-1" value={order.customerTitle||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerTitle:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
+          <div>統編：<input className="w-full rounded border px-2 py-1" value={order.customerTaxId||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerTaxId:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
+          <div className="flex items-center gap-2">
+            <span>已寄送：</span>
+            <input type="checkbox" checked={order.invoiceSent||false} onChange={async e=>{ await repos.orderRepo.update(order.id, { invoiceSent:e.target.checked }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
+          </div>
           <div className="col-span-2">地址：<div className="flex gap-2"><input className="w-full rounded border px-2 py-1" value={order.customerAddress||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerAddress:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /><a className="rounded bg-gray-100 px-3 py-1" target="_blank" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customerAddress||'')}`}>地圖</a></div></div>
           <div>會員編號：<span className="text-gray-700">{memberCode||'—'}</span></div>
         </div>
@@ -205,7 +160,7 @@ export default function PageOrderDetail() {
                 const sub = it.quantity*it.unitPrice
                 return <div key={i} className="grid grid-cols-4 items-center px-2 py-1 text-sm"><div>{it.name}</div><div>{it.quantity}</div><div>{it.unitPrice}</div><div className="text-right">{sub}</div></div>
               })}
-              <div className="border-t px-2 py-1 text-right text-rose-600">小計：<span className="text-base font-semibold">{fmt(subTotal)}</span></div>
+              <div className="border-t px-2 py-1 text-right text-gray-900">小計：<span className="text-base font-semibold">{fmt(subTotal)}</span></div>
             </div>
           ) : (
             <div className="mt-2 space-y-2 text-sm">
@@ -293,40 +248,54 @@ export default function PageOrderDetail() {
             {payMethod==='cash' && (
               <div className="mt-3 rounded-lg bg-gray-50 p-2">
                 <div className="mb-1">現金收款：{fmt(amountDue)} 元</div>
-                <div className="text-[12px] text-gray-600">點擊下方「簽名確認收款」，開啟全螢幕畫板（返回/重簽/二次確認）。確認後不可更改。</div>
-                <div className="mt-2"><button onClick={()=>{ setSignAs('technician'); setPaySignOpen(true) }} className="rounded bg-gray-900 px-3 py-1 text-white">簽名確認收款</button></div>
+                <div className="text-[12px] text-gray-600">點擊下方「簽名確認收款」，開啟全螢幕畫板。確認後不可更改。</div>
+                <div className="mt-2">
+                  {payStatus === 'paid' ? (
+                    <span className="rounded bg-emerald-100 px-3 py-1 text-emerald-700">已確認收款</span>
+                  ) : (
+                    <button onClick={()=>{ setSignAs('technician'); setPaySignOpen(true) }} className="rounded bg-gray-900 px-3 py-1 text-white">簽名確認收款</button>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* 轉帳：顯示 QR 與填寫金額/後五碼 */}
+            {/* 銀行轉帳：QR Code + 輸入金額/後五碼 */}
             {payMethod==='transfer' && (
               <div className="mt-3 rounded-lg bg-gray-50 p-2">
-                <div className="mb-1">銀行轉帳</div>
-                <div className="text-[12px] text-gray-600">請客戶掃描 QR 後轉帳。完成後輸入金額與後五碼，技師確認明細後按二次確認。</div>
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="rounded border bg-white p-2 text-center text-xs">822 QR<br/>（示意）</div>
-                  <button onClick={()=>setTransferInputOpen(true)} className="rounded bg-brand-500 px-3 py-1 text-white">完成轉帳</button>
-                </div>
-                {transferInputOpen && (
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <input placeholder="轉帳金額" value={transferAmount} onChange={e=>setTransferAmount(e.target.value)} className="rounded border px-2 py-1" />
-                    <input placeholder="後五碼" value={transferLast5} onChange={e=>setTransferLast5(e.target.value)} className="rounded border px-2 py-1" />
-                    <div className="col-span-2 text-right">
-                      <button onClick={async()=>{ const { confirmTwice } = await import('../kit'); if(!(await confirmTwice('確認轉帳資訊正確？','確認後將標記為待確認/已收款'))) return; await repos.orderRepo.update(order.id, { paymentStatus: 'pending' }); const o=await repos.orderRepo.get(order.id); setOrder(o); alert('已提交，請技師確認明細後手動改為已收款') }} className="rounded bg-gray-900 px-3 py-1 text-white">二次確認</button>
+                <div className="mb-1">銀行轉帳：822 QR (示意)</div>
+                <div className="text-[12px] text-gray-600">請客戶完成轉帳後，輸入轉帳金額與後五碼。</div>
+                {!transferInputOpen ? (
+                  <div className="mt-2">
+                    <button onClick={()=>setTransferInputOpen(true)} className="rounded bg-gray-900 px-3 py-1 text-white">完成轉帳</button>
+                  </div>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="number" placeholder="轉帳金額" className="rounded border px-2 py-1" value={transferAmount} onChange={e=>setTransferAmount(e.target.value)} />
+                      <input type="text" placeholder="後五碼" className="rounded border px-2 py-1" value={transferLast5} onChange={e=>setTransferLast5(e.target.value)} />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={()=>setTransferInputOpen(false)} className="rounded bg-gray-100 px-3 py-1">取消</button>
+                      <button onClick={async()=>{
+                        if(!transferAmount || !transferLast5) { alert('請輸入轉帳金額與後五碼'); return }
+                        await repos.orderRepo.update(order.id, { paymentStatus: 'pending' })
+                        const o=await repos.orderRepo.get(order.id); setOrder(o)
+                        setTransferInputOpen(false)
+                        alert('已標記為待確認')
+                      }} className="rounded bg-gray-900 px-3 py-1 text-white">確認</button>
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* 信用卡 / Apple Pay：QR 進入（後續串接金流） */}
+            {/* 信用卡/Apple Pay：QR Code */}
             {(payMethod==='card' || payMethod==='applepay') && (
               <div className="mt-3 rounded-lg bg-gray-50 p-2">
-                <div className="mb-1">{payMethod==='card' ? '信用卡' : 'Apple Pay'}</div>
-                <div className="text-[12px] text-gray-600">請客戶掃描 QR 後於頁面完成付款（後續串接綠界金流）。</div>
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="rounded border bg-white p-2 text-center text-xs">支付 QR<br/>（示意）</div>
-                  <button onClick={()=>alert('已顯示 QR；完成後請更新付款狀態')} className="rounded bg-brand-500 px-3 py-1 text-white">顯示 QR</button>
+                <div className="mb-1">支付 QR (示意)</div>
+                <div className="text-[12px] text-gray-600">請客戶掃描 QR Code 完成付款。</div>
+                <div className="mt-2">
+                  <button className="rounded bg-gray-900 px-3 py-1 text-white">顯示 QR</button>
                 </div>
               </div>
             )}
@@ -334,7 +303,22 @@ export default function PageOrderDetail() {
         </div>
       </div>
 
-      <div className="rounded-2xl bg白 p-4 shadow-card">
+      {/* 備註區 */}
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <SectionTitle>備註</SectionTitle>
+        <div className="mt-2 text-sm">
+          <textarea
+            className="w-full rounded-lg border px-3 py-2"
+            placeholder="輸入備註（無法服務選項/原因/客戶簽名等會自動寫入）"
+            rows={4}
+            value={note}
+            onChange={e=>setNote(e.target.value)}
+            onBlur={async()=>{ await repos.orderRepo.update(order.id, { note }); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-white p-4 shadow-card">
         <SectionTitle>預約資訊</SectionTitle>
         <div className="mt-3 space-y-2 text-sm">
           <div className="grid grid-cols-2 gap-2">
@@ -397,11 +381,33 @@ export default function PageOrderDetail() {
               <div className="font-semibold">已指派技師：</div>
               <div className="mt-1 flex flex-wrap gap-2">
                 {order.assignedTechnicians.map((n: string, i: number) => {
-                  const t = techs.find((x:any)=> x.name===n)
-                  const label = t ? `${t.name}（${t.code}）· ${(t.region==='all'?'全區':t.region)}` : n
-                  return <span key={i} className="rounded-full bg-brand-100 px-2 py-1 text-xs text-brand-700">{label}</span>
+                  return <span key={i} className="rounded-full bg-brand-100 px-2 py-1 text-xs text-brand-700">{n}</span>
                 })}
               </div>
+              
+              {/* 訂單狀態下拉選單 */}
+              <div className="mt-3">
+                <div className="text-sm text-gray-600">訂單狀態：</div>
+                <select 
+                  className="mt-1 rounded border px-2 py-1 text-sm" 
+                  value={order.status} 
+                  onChange={async (e) => {
+                    const newStatus = e.target.value
+                    await repos.orderRepo.update(order.id, { status: newStatus })
+                    const o = await repos.orderRepo.get(order.id)
+                    setOrder(o)
+                  }}
+                  disabled={hasCustomerSignature} // 客戶簽名後鎖定
+                >
+                  <option value="draft">草稿</option>
+                  <option value="confirmed">已確認</option>
+                  <option value="in_progress">待服務</option>
+                  <option value="completed">已完成</option>
+                  <option value="canceled">已取消</option>
+                  <option value="unservice">無法服務</option>
+                </select>
+              </div>
+              
               {/* 簽名與雙簽名區塊 */}
               <div className="mt-2">
                 <div className="text-sm text-gray-600">簽名</div>
@@ -419,23 +425,28 @@ export default function PageOrderDetail() {
                           const o = await repos.orderRepo.get(order.id)
                           setOrder(o)
                         }}
+                        disabled={hasTechSignature} // 簽名後不可更改
                       >
                         <option value="">請選擇</option>
                         {order.assignedTechnicians.map((n: string, i: number) => (
                           <option key={i} value={n}>{n}</option>
                         ))}
                       </select>
-                      <button onClick={()=>{ setSignAs('technician'); if(!order.signatureTechnician){ alert('請先選擇簽名技師'); return } setSignOpen(true) }} className="rounded bg-gray-900 px-3 py-1 text-white">簽名</button>
+                      <button 
+                        onClick={()=>{ 
+                          setSignAs('technician'); 
+                          if(!order.signatureTechnician){ alert('請先選擇簽名技師'); return } 
+                          setSignOpen(true) 
+                        }} 
+                        className="rounded bg-gray-900 px-3 py-1 text-white"
+                        disabled={hasTechSignature} // 簽名後不可再簽
+                      >
+                        簽名
+                      </button>
                       {hasTechSignature ? (
                         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">已簽名</span>
                       ) : (
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">未簽名</span>
-                      )}
-                      {hasTechSignature && (
-                        <button
-                          onClick={async()=>{ const sigs = { ...(order.signatures||{}) }; delete (sigs as any).technician; await repos.orderRepo.update(order.id, { signatures: sigs }); const o = await repos.orderRepo.get(order.id); setOrder(o) }}
-                          className="rounded bg-gray-100 px-2 py-1 text-xs"
-                        >清除</button>
                       )}
                     </div>
                   </div>
@@ -443,17 +454,17 @@ export default function PageOrderDetail() {
                   <div className="rounded border p-2">
                     <div className="text-xs text-gray-600">客戶簽名</div>
                     <div className="mt-1 flex items-center gap-2">
-                      <button onClick={()=>{ setSignAs('customer'); setSignOpen(true) }} className="rounded bg-gray-900 px-3 py-1 text-white">簽名</button>
+                      <button 
+                        onClick={()=>{ setSignAs('customer'); setSignOpen(true) }} 
+                        className="rounded bg-gray-900 px-3 py-1 text-white"
+                        disabled={hasCustomerSignature} // 簽名後不可再簽
+                      >
+                        簽名
+                      </button>
                       {hasCustomerSignature ? (
                         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">已簽名</span>
                       ) : (
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">未簽名</span>
-                      )}
-                      {hasCustomerSignature && (
-                        <button
-                          onClick={async()=>{ const sigs = { ...(order.signatures||{}) }; delete (sigs as any).customer; await repos.orderRepo.update(order.id, { signatures: sigs }); const o = await repos.orderRepo.get(order.id); setOrder(o) }}
-                          className="rounded bg-gray-100 px-2 py-1 text-xs"
-                        >清除</button>
                       )}
                     </div>
                   </div>
@@ -467,6 +478,7 @@ export default function PageOrderDetail() {
           
         </div>
       </div>
+
       <SignatureModal open={signOpen} onClose={()=>setSignOpen(false)} onSave={async (dataUrl)=>{
         const key = signAs==='customer' ? 'customer' : 'technician'
         // 若是無法服務流程中的客戶簽名，落地後順便更新狀態、品項與備註
@@ -524,7 +536,13 @@ export default function PageOrderDetail() {
               <button
                 disabled={!canClose}
                 title={canClose?'' : closeDisabledReason}
-                onClick={async()=>{ if(!hasSignature){ alert('請先完成客戶與技師雙簽名'); return } if(!(payStatus==='paid' || payStatus==='nopay')){ alert('請先完成付款或標記不用付款'); return } if(!confirm('是否確認服務完成並結案？')) return; await repos.orderRepo.finishWork(order.id, new Date().toISOString()); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
+                onClick={async()=>{ 
+                  if(!hasSignature){ alert('請先完成客戶與技師雙簽名'); return } 
+                  if(!(payStatus==='paid' || payStatus==='nopay')){ alert('請先完成付款或標記不用付款'); return } 
+                  if(!confirm('是否確認服務完成並結案？')) return; 
+                  await repos.orderRepo.finishWork(order.id, new Date().toISOString()); 
+                  const o=await repos.orderRepo.get(order.id); setOrder(o) 
+                }}
                 className={`rounded px-3 py-1 text-white ${canClose? 'bg-gray-900' : 'bg-gray-400'}`}
               >完成服務</button>
             )}
@@ -579,81 +597,6 @@ export default function PageOrderDetail() {
                 } finally { setUploadingAfter(false) }
               }} />
               <div className="mt-1 text-xs text-gray-500">{uploadingAfter?'上傳中… ':''}最多 8 張，單張壓縮後 ≦ 200KB</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl bg-white p-4 shadow-card">
-        <SectionTitle>服務進度</SectionTitle>
-        <div className="mt-3 flex flex-col gap-3">
-          {/* 倒數提示區：開始服務後顯示 20 分鐘冷卻倒數 */}
-          {order.status==='in_progress' && (
-            <div className="rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-700">
-              已開始服務；完成前冷卻倒數：
-              <span className="ml-2 rounded bg-white px-2 py-0.5 font-mono">
-                {String(Math.floor(timeLeftSec/60)).padStart(2,'0')}:{String(timeLeftSec%60).padStart(2,'0')}
-              </span>
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            {order.status==='confirmed' && (
-              <button onClick={()=>setPromiseOpen(true)} className="rounded bg-brand-500 px-3 py-1 text-white">開始服務</button>
-            )}
-            {(order.status==='confirmed' || order.status==='in_progress') && (
-              <button onClick={()=>setUnserviceOpen(true)} className="rounded bg-amber-600 px-3 py-1 text-white">無法服務</button>
-            )}
-            {order.status==='in_progress' && (
-              <button
-                disabled={!canClose}
-                title={canClose?'' : closeDisabledReason}
-                onClick={async()=>{ if(!hasSignature){ alert('請先完成客戶與技師雙簽名'); return } if(payStatus!=='paid'){ alert('請先完成付款'); return } if(!confirm('是否確認服務完成並結案？')) return; await repos.orderRepo.finishWork(order.id, new Date().toISOString()); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
-                className={`rounded px-3 py-1 text-white ${canClose? 'bg-gray-900' : 'bg-gray-400'}`}
-              >結案</button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 底部快速操作列（左：無法服務；右：結案） */}
-      <div className="sticky bottom-0 z-10 mt-8 border-t bg-white/95 px-3 py-3 backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-gray-700">
-            <div>
-              小計：<span className="font-semibold">{fmt(subTotal)}</span>
-              ，折抵：<span className="font-semibold">{fmt(order.pointsDeductAmount||0)}</span>
-              ，應付：<span className="font-semibold text-rose-600">{fmt(amountDue)}</span>
-            </div>
-          </div>
-          <div className="flex flex-1 items-center justify-between gap-2 text-sm">
-            <div className="flex items-center gap-2">
-              {(order.status==='confirmed' || order.status==='in_progress') && (
-                <button onClick={()=>setUnserviceOpen(true)} className="rounded bg-amber-600 px-3 py-1 text-white">無法服務</button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-            {order.status==='draft' && can(user,'orders.update') && (
-              <button
-                onClick={async()=>{ const { confirmTwice } = await import('../kit'); if (!(await confirmTwice('確認設為「已確認」？','確認後僅能取消，無法刪除。是否繼續？'))) return; await repos.orderRepo.confirm(order.id); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
-                className="rounded bg-blue-600 px-3 py-1 text-white"
-              >確認</button>
-            )}
-            {user?.role!=='technician' && (
-              <Link to={`/schedule?orderId=${order.id}&date=${order.preferredDate||''}&start=${order.preferredTimeStart}&end=${order.preferredTimeEnd}`} className="rounded bg-brand-500 px-3 py-1 text-white">指派</Link>
-            )}
-            {order.status==='in_progress' && (
-              <button
-                disabled={timeLeftSec>0}
-                onClick={async()=>{ if(!hasSignature){ alert('請先完成簽名（簽名技師＋簽名檔）'); return } if(!confirm('是否確認服務完成？')) return; await repos.orderRepo.finishWork(order.id, new Date().toISOString()); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
-                className={`rounded px-3 py-1 text-white ${timeLeftSec>0? 'bg-gray-400' : 'bg-gray-900'}`}
-              >完成</button>
-            )}
-            {order.status!=='canceled' && can(user,'orders.cancel') && (
-              <button
-                onClick={async()=>{ const { confirmTwice } = await import('../kit'); if(order.status!=='confirmed'){ alert('僅已確認的訂單可以取消'); return } if (!(await confirmTwice('確認要取消此訂單？','取消後需重新下單，仍要取消？'))) return; const reason = prompt('請輸入取消理由：') || ''; if (!reason.trim()) return; await repos.orderRepo.cancel(order.id, reason); const o = await repos.orderRepo.get(order.id); setOrder(o) }}
-                className="rounded bg-rose-500 px-3 py-1 text-white"
-              >取消</button>
-            )}
             </div>
           </div>
         </div>

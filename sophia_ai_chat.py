@@ -15,6 +15,14 @@ from datetime import datetime
 import subprocess
 import re
 from pathlib import Path
+import json as jsonlib
+
+# 可選：LLM 規劃器（若未配置則自動降級為規則模式）
+try:
+    import llm_provider  # 需使用者提供，內含 call_planner(), is_available()
+    _LLM_AVAILABLE = True
+except Exception:
+    _LLM_AVAILABLE = False
 
 class SophiaAIChat:
     def __init__(self, parent_app=None):
@@ -127,6 +135,97 @@ class SophiaAIChat:
             'entities': found_entities,
             'original_text': user_input
         }
+
+    # === 規劃可執行動作 ===
+    def plan_actions(self, user_input: str):
+        """將自然語言轉換為可執行的動作清單（優先 LLM，否則規則降級）。"""
+        # 嘗試 LLM
+        if _LLM_AVAILABLE and getattr(llm_provider, 'is_available', lambda: False)():
+            try:
+                system_prompt = (
+                    "你是桌面助手規劃器，請將使用者輸入轉為 JSON 陣列，每個元素為動作物件；"
+                    "支援的 type: search_file, open_file, clean, analyze, chart, export, open_in_excel；"
+                    "若需搜尋檔案可附 params.keywords 與 params.ext。僅輸出 JSON。"
+                )
+                raw = llm_provider.call_planner(system_prompt, user_input)
+                actions = jsonlib.loads(raw)
+                if isinstance(actions, list) and actions:
+                    return actions
+            except Exception:
+                pass
+
+        # 規則式降級
+        lowered = user_input.lower()
+        actions = []
+        exts = None
+        if any(k in lowered for k in ['excel', 'xlsx', 'xls', '表']):
+            exts = [".xlsx", ".xls", ".csv"]
+        # 關鍵字粗抽取
+        kws = []
+        if '薪資' in user_input or '工資' in user_input:
+            kws.append('薪資')
+        m = re.findall(r'(\d{1,2})月', user_input)
+        kws.extend([f"{mm}月" for mm in m])
+
+        if exts and kws:
+            actions.append({"type": "search_file", "params": {"keywords": " ".join(kws), "ext": exts}})
+            actions.append({"type": "open_file"})
+        elif exts:
+            actions.append({"type": "open_file"})
+
+        if any(k in user_input for k in ['清理', '整理', '去重', '缺失']):
+            actions.append({"type": "clean"})
+        if any(k in user_input for k in ['分析', '統計', '計算']):
+            actions.append({"type": "analyze"})
+        if any(k in user_input for k in ['圖', '圖表', '趨勢']):
+            actions.append({"type": "chart", "params": {"kind": "auto"}})
+        if any(k in user_input for k in ['匯出', '輸出', '保存', '儲存']):
+            actions.append({"type": "export", "params": {"filename": "分析結果.xlsx"}})
+        if any(k in user_input for k in ['用excel開', '在excel打開', 'excel打開', '開啟excel']):
+            actions.append({"type": "open_in_excel"})
+
+        return actions or [{"type": "analyze"}]
+
+    def execute_actions(self, actions):
+        """執行動作清單，並回傳執行紀錄。"""
+        if not self.parent_app:
+            return "⚠️ 尚未連結桌面應用，無法執行動作。"
+        logs = []
+        for act in actions:
+            t = (act.get('type') or '').lower()
+            p = act.get('params') or {}
+            try:
+                if t == 'search_file':
+                    res = self.parent_app.search_files(p.get('keywords', ''), p.get('ext'), 10)
+                    logs.append(f"🔎 搜尋: '{p.get('keywords','')}' => {len(res)} 筆")
+                    if res:
+                        self.parent_app._ai_candidate_file = res[0]
+                elif t == 'open_file':
+                    cand = getattr(self.parent_app, '_ai_candidate_file', None)
+                    if cand:
+                        self.parent_app.open_specific_file(cand)
+                        logs.append(f"📂 已開啟: {cand.name}")
+                    else:
+                        self.parent_app.open_file()
+                        logs.append("📂 已顯示檔案選擇器")
+                elif t == 'clean':
+                    msg = self.parent_app.clean_data_silent()
+                    logs.append(msg)
+                elif t == 'analyze':
+                    self.parent_app.analyze_current_file()
+                    logs.append("🔍 已完成分析")
+                elif t == 'chart':
+                    self.parent_app.create_charts_silent(kind=p.get('kind', 'auto'))
+                    logs.append("📈 已生成圖表")
+                elif t == 'export':
+                    path = self.parent_app.export_current_df_to_excel(p.get('filename') or '分析結果.xlsx')
+                    logs.append(f"💾 已匯出: {path}")
+                elif t == 'open_in_excel':
+                    self.parent_app.open_in_excel_app()
+                    logs.append("📊 已使用系統 Excel 開啟")
+            except Exception as e:
+                logs.append(f"❌ 失敗 {t}: {e}")
+        return "\n".join(logs)
     
     def generate_response(self, user_input):
         """生成智能回應"""
@@ -631,11 +730,18 @@ def create_ai_chat_window(parent_app):
         timestamp = datetime.now().strftime('%H:%M:%S')
         chat_history.insert(tk.END, f"[{timestamp}] 👤 您：{user_input}\n\n")
         
-        # 獲取AI回應
+        # 規劃並執行動作
+        actions = ai_chat.plan_actions(user_input)
+        exec_log = ai_chat.execute_actions(actions)
+
+        # 產生對話回應
         ai_response = ai_chat.generate_response(user_input)
         
-        # 顯示AI回應
-        chat_history.insert(tk.END, f"[{timestamp}] 🤖 Sophia：\n{ai_response}\n\n")
+        # 顯示AI回應 + 執行紀錄
+        if exec_log:
+            chat_history.insert(tk.END, f"[{timestamp}] 🤖 Sophia：\n{ai_response}\n\n📜 執行紀錄：\n{exec_log}\n\n")
+        else:
+            chat_history.insert(tk.END, f"[{timestamp}] 🤖 Sophia：\n{ai_response}\n\n")
         chat_history.insert(tk.END, "=" * 60 + "\n\n")
         
         # 自動滾動到底部

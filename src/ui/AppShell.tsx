@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { authRepo } from '../adapters/local/auth'
 import { can } from '../utils/permissions'
 import { notificationRepo } from '../adapters/local/notifications'
@@ -8,13 +8,29 @@ import { loadAdapters } from '../adapters'
 function AppBar() {
   const title = { '/dispatch': '派工', '/me': '個人', '/notifications': '通知', '/schedule': '排班', '/customers': '客戶', '/payroll': '薪資', '/reports': '回報' } as Record<string,string>
   const loc = useLocation()
+  const navigate = useNavigate()
   const t = title[loc.pathname] || '訂單內容'
   const u = authRepo.getCurrentUser()
+  const isTechnician = u?.role === 'technician'
+  
   return (
     <div className="sticky top-0 z-20 flex h-14 items-center justify-center bg-brand-500 text-white">
-      <div className="absolute left-3 text-xl" onClick={() => window.history.back()}>‹</div>
+      <div className="absolute left-3 text-xl" onClick={() => navigate('/dispatch')}>‹</div>
       <div className="text-lg font-semibold">{t}</div>
-      <div className="absolute right-3 text-xs opacity-90">{u?.name || ''}</div>
+      <div className="absolute right-3 flex items-center gap-2 text-xs opacity-90">
+        <span>{u?.name || ''}</span>
+        {isTechnician && (
+          <button 
+            onClick={() => {
+              authRepo.logout()
+              navigate('/login')
+            }}
+            className="rounded bg-white/20 px-2 py-1 text-white hover:bg-white/30"
+          >
+            登出
+          </button>
+        )}
+      </div>
     </div>
   )
 }

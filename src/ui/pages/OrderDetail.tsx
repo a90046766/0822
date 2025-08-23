@@ -319,6 +319,65 @@ export default function PageOrderDetail() {
         </div>
       </div>
 
+      {/* 預約資訊 */}
+      <div className="rounded-2xl bg-white p-4 shadow-card">
+        <SectionTitle>預約資訊</SectionTitle>
+        <div className="mt-3 space-y-2 text-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <div>下單時間：<input type="datetime-local" className="w-full rounded border px-2 py-1" value={createdAtEdit} readOnly /></div>
+            <div />
+          </div>
+          <div>服務日期：
+            <div className="mt-1 grid grid-cols-3 gap-2">
+              <input type="date" className="rounded border px-2 py-1" value={dateEdit} disabled={isTechnician} onChange={e=>setDateEdit(e.target.value)} onBlur={async()=>{ if(isTechnician) return; await repos.orderRepo.update(order.id, { preferredDate: dateEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
+              <input type="time" className="rounded border px-2 py-1" value={startEdit} disabled={isTechnician} onChange={e=>setStartEdit(e.target.value)} onBlur={async()=>{ if(isTechnician) return; await repos.orderRepo.update(order.id, { preferredTimeStart: startEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
+              <input type="time" className="rounded border px-2 py-1" value={endEdit} disabled={isTechnician} onChange={e=>setEndEdit(e.target.value)} onBlur={async()=>{ if(isTechnician) return; await repos.orderRepo.update(order.id, { preferredTimeEnd: endEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
+            </div>
+          </div>
+          <div className="text-xs text-gray-700">
+            會員：
+            {can(user,'orders.update') ? (
+              <span className="inline-flex items-center gap-2">
+                <input className="rounded border px-2 py-1 text-sm" placeholder="輸入 MOxxxx" value={memberCode} onChange={e=>setMemberCode(e.target.value)} />
+                <button className="rounded bg-gray-900 px-2 py-1 text-white" onClick={async()=>{
+                  const code = (memberCode||'').trim().toUpperCase()
+                  if (!code) { await repos.orderRepo.update(order.id, { memberId: undefined }); const o=await repos.orderRepo.get(order.id); setOrder(o); alert('已取消綁定'); return }
+                  if (!code.startsWith('MO')) { alert('請輸入有效的會員編號（MOxxxx）'); return }
+                  try { const m = await repos.memberRepo.findByCode(code); if (!m) { alert('查無此會員編號'); return } await repos.orderRepo.update(order.id, { memberId: m.id }); const o=await repos.orderRepo.get(order.id); setOrder(o); alert('已綁定會員：'+(m.name||'')) } catch { alert('綁定失敗') }
+                }}>儲存</button>
+                {memberCode && <button className="rounded bg-gray-100 px-2 py-1" onClick={()=>navigator.clipboard?.writeText(memberCode)}>複製MO</button>}
+              </span>
+            ) : (
+              <span>{memberCode || '—'}{memberName ? `（${memberName}）` : ''}</span>
+            )}
+          </div>
+          {user?.role!=='technician' && (
+            <div className="pt-2">
+              <Link
+                to={`/schedule?orderId=${order.id}&date=${order.preferredDate||''}&start=${order.preferredTimeStart}&end=${order.preferredTimeEnd}`}
+                className={`inline-block rounded-xl px-4 py-2 text-white ${order.preferredDate && order.preferredTimeStart && order.preferredTimeEnd ? 'bg-brand-500' : 'bg-gray-400 pointer-events-none'}`}
+              >指派技師</Link>
+            </div>
+          )}
+          {order.status==='draft' && can(user,'orders.update') && (
+            <div className="mt-3 text-right">
+              <button
+                onClick={async()=>{
+                  if(!order.customerName || !order.customerPhone){ alert('請填寫客戶姓名與手機'); return }
+                  if(!order.serviceItems || order.serviceItems.length===0){ alert('請新增至少一個服務項目'); return }
+                  if(!order.preferredDate || !order.preferredTimeStart || !order.preferredTimeEnd){ alert('請填寫服務日期與時段'); return }
+                  const { confirmTwice } = await import('../kit');
+                  if (!(await confirmTwice('確認建單完成？','確認後訂單進入待服務（僅能取消）。是否繼續？'))) return
+                  await repos.orderRepo.confirm(order.id)
+                  const o=await repos.orderRepo.get(order.id); setOrder(o); alert('已確認，待服務')
+                }}
+                className="inline-block rounded-xl bg-blue-600 px-4 py-2 text-white"
+              >確認（建單完成）</button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 簽名 */}
       <div className="rounded-2xl bg-white p-4 shadow-card">
         <SectionTitle>簽名</SectionTitle>
@@ -338,7 +397,13 @@ export default function PageOrderDetail() {
                     <option value="">請選擇</option>
                     {order.assignedTechnicians.map((n: string, i: number) => (<option key={i} value={n}>{n}</option>))}
                   </select>
-                  <button onClick={()=>{ if(!order.signatureTechnician){ alert('請先選擇簽名技師'); return } setSignAs('technician'); setSignOpen(true) }} className="rounded bg-gray-900 px-3 py-1 text-white" disabled={hasTechSignature}>簽名</button>
+                  <div className={`h-16 w-32 cursor-pointer rounded border ${hasTechSignature?'bg-white':'bg-gray-50'}`} onClick={()=>{ if(hasTechSignature) return; if(!order.signatureTechnician){ alert('請先選擇簽名技師'); return } setSignAs('technician'); setSignOpen(true) }}>
+                    {hasTechSignature && (order as any)?.signatures?.technician ? (
+                      <img src={(order as any).signatures.technician} className="h-full w-full object-contain" />
+                    ) : (
+                      <div className="grid h-full place-items-center text-[11px] text-gray-500">點擊簽名</div>
+                    )}
+                  </div>
                   {hasTechSignature ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">已簽名</span> : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">未簽名</span>}
                 </>
               ) : (
@@ -350,14 +415,21 @@ export default function PageOrderDetail() {
           <div className="rounded border p-2">
             <div className="text-xs text-gray-600">客戶簽名</div>
             <div className="mt-1 flex items-center gap-2">
-              <button onClick={()=>{ setSignAs('customer'); setSignOpen(true) }} className="rounded bg-gray-900 px-3 py-1 text-white" disabled={hasCustomerSignature}>簽名</button>
+              <div className={`h-16 w-32 cursor-pointer rounded border ${hasCustomerSignature?'bg-white':'bg-gray-50'}`} onClick={()=>{ if(hasCustomerSignature) return; setSignAs('customer'); setSignOpen(true) }}>
+                {hasCustomerSignature && (order as any)?.signatures?.customer ? (
+                  <img src={(order as any).signatures.customer} className="h-full w-full object-contain" />
+                ) : (
+                  <div className="grid h-full place-items-center text-[11px] text-gray-500">點擊簽名</div>
+                )}
+              </div>
               {hasCustomerSignature ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] text-emerald-700">已簽名</span> : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-700">未簽名</span>}
             </div>
           </div>
         </div>
       </div>
 
-      {/* 服務進度 */}
+      {/* 服務進度 */
+      }
       <div className="rounded-2xl bg-white p-4 shadow-card">
         <SectionTitle>服務進度</SectionTitle>
         <div className="mt-3 flex flex-col gap-3">
@@ -377,6 +449,22 @@ export default function PageOrderDetail() {
           <div className="flex flex-wrap items-center gap-2">
             {order.status==='confirmed' && (
               <button onClick={()=>setPromiseOpen(true)} className="rounded bg-brand-500 px-3 py-1 text-white">開始服務</button>
+            )}
+            {(order.status==='confirmed' || order.status==='in_progress') && (
+              <button onClick={()=>setUnserviceOpen(true)} className="rounded bg-amber-600 px-3 py-1 text-white">無法服務</button>
+            )}
+            {(order.status==='in_progress' || order.status==='unservice') && (
+              <button
+                disabled={!canClose}
+                title={canClose ? '' : closeDisabledReason}
+                onClick={async()=>{
+                  if (!hasSignature) { alert('請先完成客戶與技師雙簽名'); return }
+                  if (!confirm('是否確認服務完成並結案？')) return
+                  await repos.orderRepo.finishWork(order.id, new Date().toISOString())
+                  const o=await repos.orderRepo.get(order.id); setOrder(o)
+                }}
+                className={`rounded px-3 py-1 text-white ${canClose? 'bg-gray-900' : 'bg-gray-400'}`}
+              >結案</button>
             )}
           </div>
         </div>
@@ -427,26 +515,7 @@ export default function PageOrderDetail() {
             </div>
           </div>
         </div>
-        
-        {/* 結案按鈕 */}
-        {order.status === 'in_progress' && (
-          <div className="mt-4 flex justify-center">
-            <button
-              disabled={!canClose}
-              title={canClose ? '' : closeDisabledReason}
-              onClick={async () => {
-                if (!hasSignature) { alert('請先完成客戶與技師雙簽名'); return }
-                if (!confirm('是否確認服務完成並結案？')) return
-                await repos.orderRepo.finishWork(order.id, new Date().toISOString())
-                const o = await repos.orderRepo.get(order.id)
-                setOrder(o)
-              }}
-              className={`rounded-xl px-6 py-2 text-white ${canClose ? 'bg-gray-900' : 'bg-gray-400'}`}
-            >
-              結案
-            </button>
-          </div>
-        )}
+
       </div>
 
       {/* 備註欄位 */}

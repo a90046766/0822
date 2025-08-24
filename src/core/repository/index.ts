@@ -114,6 +114,16 @@ export interface Product {
   description?: string
   imageUrls: string[]
   safeStock?: number
+  // 產品分類（舊）
+  category?: string
+  // 模式代號：svc/home/new/used 等（購物車不顯示）
+  modeCode?: string
+  // 區塊 ID（可由管理者新增/停用）
+  categoryId?: string
+  // 預設數量（used 模式將固定為 1）
+  defaultQuantity?: number
+  // 已售出數（供展示）
+  soldCount?: number
   updatedAt: string
 }
 

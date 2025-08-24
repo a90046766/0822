@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { staffRepo } from '../../adapters/local/staff'
+import { loadAdapters } from '../../adapters'
 import { authRepo } from '../../adapters/local/auth'
 import { Navigate } from 'react-router-dom'
 import { getPermissionOverride, setPermissionOverride, type Permission } from '../../utils/permissions'
@@ -9,8 +9,8 @@ export default function StaffManagementPage() {
   if (u && u.role!=='admin') return <Navigate to="/dispatch" replace />
   const [rows, setRows] = useState<any[]>([])
   const [edit, setEdit] = useState<any | null>(null)
-  const load = async () => setRows(await staffRepo.list())
-  useEffect(() => { load() }, [])
+  const [repos, setRepos] = useState<any>(null)
+  useEffect(() => { (async()=>{ const a = await loadAdapters(); setRepos(a); setRows(await a.staffRepo.list()) })() }, [])
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -28,8 +28,8 @@ export default function StaffManagementPage() {
             <div className="flex items-center gap-2">
               {s.refCode && <button onClick={()=>navigator.clipboard.writeText(s.refCode)} className="rounded-lg bg-gray-100 px-3 py-1 text-sm">複製編號</button>}
               <button onClick={()=>setEdit(s)} className="rounded-lg bg-gray-900 px-3 py-1 text-white">編輯</button>
-              <button onClick={async()=>{ const { confirmTwice } = await import('../kit'); if (await confirmTwice('確認刪除該員工？','刪除後無法復原，仍要刪除？')) { await staffRepo.remove(s.id); load() } }} className="rounded-lg bg-rose-500 px-3 py-1 text-white">刪除</button>
-              <button onClick={async()=>{ await staffRepo.resetPassword(s.id); alert('已觸發重設密碼（示意）') }} className="rounded-lg bg-gray-100 px-3 py-1 text-sm">重設密碼</button>
+              <button onClick={async()=>{ const { confirmTwice } = await import('../kit'); if (await confirmTwice('確認刪除該員工？','刪除後無法復原，仍要刪除？')) { await repos.staffRepo.remove(s.id); setRows(await repos.staffRepo.list()) } }} className="rounded-lg bg-rose-500 px-3 py-1 text-white">刪除</button>
+              <button onClick={async()=>{ await repos.staffRepo.resetPassword(s.id); alert('已觸發重設密碼（示意）') }} className="rounded-lg bg-gray-100 px-3 py-1 text-sm">重設密碼</button>
             </div>
           </div>
           <PermissionOverrideEditor email={s.email} />
@@ -58,7 +58,7 @@ export default function StaffManagementPage() {
             </div>
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={()=>setEdit(null)} className="rounded-lg bg-gray-100 px-3 py-1">取消</button>
-              <button onClick={async()=>{ await staffRepo.upsert(edit); setEdit(null); load() }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">儲存</button>
+              <button onClick={async()=>{ await repos.staffRepo.upsert(edit); setEdit(null); setRows(await repos.staffRepo.list()) }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">儲存</button>
             </div>
           </div>
         </div>
@@ -71,7 +71,7 @@ function AdminSettingsPanel(){
   const u = authRepo.getCurrentUser()
   const [enabled, setEnabled] = useState(true)
   const [mins, setMins] = useState(20)
-  useEffect(()=>{ (async()=>{ try { const { settingsRepo } = await import('../../adapters/local/settings'); const s = await settingsRepo.get(); setEnabled(!!s.countdownEnabled); setMins(s.countdownMinutes||20) } catch {} })() },[])
+  useEffect(()=>{ (async()=>{ try { const { loadAdapters } = await import('../../adapters'); const a = await loadAdapters(); const s = await (a as any).settingsRepo.get(); setEnabled(!!s.countdownEnabled); setMins(s.countdownMinutes||20) } catch {} })() },[])
   if (!u || u.role!=='admin') return null
   return (
     <div className="rounded-xl border bg-white p-3 text-sm shadow-card">
@@ -79,7 +79,7 @@ function AdminSettingsPanel(){
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)} />啟用服務完成冷卻倒數</label>
         <div>分鐘：<input type="number" className="w-20 rounded border px-2 py-1" value={mins} onChange={e=>setMins(Number(e.target.value))} /></div>
-        <button onClick={async()=>{ const { settingsRepo } = await import('../../adapters/local/settings'); await settingsRepo.update({ countdownEnabled: enabled, countdownMinutes: Math.max(1, mins|0) }); alert('已儲存設定') }} className="rounded bg-gray-900 px-3 py-1 text-white">儲存</button>
+        <button onClick={async()=>{ const { loadAdapters } = await import('../../adapters'); const a = await loadAdapters(); await (a as any).settingsRepo.update({ countdownEnabled: enabled, countdownMinutes: Math.max(1, mins|0) }); alert('已儲存設定') }} className="rounded bg-gray-900 px-3 py-1 text-white">儲存</button>
       </div>
     </div>
   )

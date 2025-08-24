@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { customerRepo } from '../../adapters/local/customers'
+import { loadAdapters } from '../../adapters'
 
 export default function CustomersPage() {
   const [rows, setRows] = useState<any[]>([])
   const [edit, setEdit] = useState<any | null>(null)
-  const load = async () => setRows(await customerRepo.list())
-  useEffect(() => { load() }, [])
+  const [repos, setRepos] = useState<any>(null)
+  useEffect(() => { (async()=>{ const a = await loadAdapters(); setRepos(a); setRows(await (a as any).customerRepo.list()) })() }, [])
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -23,7 +23,7 @@ export default function CustomersPage() {
             <div className="flex items-center gap-2">
               <button onClick={()=>setEdit(c)} className="rounded-lg bg-gray-900 px-3 py-1 text-white">編輯</button>
               <button onClick={()=>{ const last6 = String(c.phone||'').replace(/\D/g,'').slice(-6); alert(`已重設為手機後六碼：${last6||'（無手機）'}（示意）`) }} className="rounded-lg bg-gray-100 px-3 py-1 text-sm">重設密碼</button>
-              <button onClick={async()=>{ const { confirmTwice } = await import('../kit'); if(await confirmTwice('確認刪除該客戶？','刪除後無法復原，仍要刪除？')){ await customerRepo.remove(c.id); load() } }} className="rounded-lg bg-rose-500 px-3 py-1 text-white">刪除</button>
+              <button onClick={async()=>{ const { confirmTwice } = await import('../kit'); if(await confirmTwice('確認刪除該客戶？','刪除後無法復原，仍要刪除？')){ await (repos as any).customerRepo.remove(c.id); setRows(await (repos as any).customerRepo.list()) } }} className="rounded-lg bg-rose-500 px-3 py-1 text-white">刪除</button>
             </div>
           </div>
         </div>
@@ -51,7 +51,7 @@ export default function CustomersPage() {
             </div>
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={()=>setEdit(null)} className="rounded-lg bg-gray-100 px-3 py-1">取消</button>
-              <button onClick={async()=>{ await customerRepo.upsert(edit); setEdit(null); load() }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">儲存</button>
+              <button onClick={async()=>{ await (repos as any).customerRepo.upsert(edit); setEdit(null); setRows(await (repos as any).customerRepo.list()) }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">儲存</button>
             </div>
           </div>
         </div>

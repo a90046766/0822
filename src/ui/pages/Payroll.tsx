@@ -72,7 +72,7 @@ function AdminManualPayroll({ month, onSaved }: { month: string; onSaved: ()=>vo
       <input className="w-48 rounded border px-2 py-1" placeholder="技師 Email" value={email} onChange={e=>setEmail(e.target.value)} />
       <input type="number" className="w-28 rounded border px-2 py-1" placeholder="底薪" value={base} onChange={e=>setBase(Number(e.target.value))} />
       <input type="number" className="w-28 rounded border px-2 py-1" placeholder="獎金" value={bonus} onChange={e=>setBonus(Number(e.target.value))} />
-      <button onClick={async()=>{ if(!email) return; const { payrollRepo } = await import('../../adapters/local/payroll'); await payrollRepo.upsert({ userEmail: email, month, baseSalary: base, bonus, total: base+bonus }); onSaved() }} className="rounded bg-gray-900 px-3 py-1 text-white">儲存</button>
+      <button onClick={async()=>{ if(!email) return; const { loadAdapters } = await import('../../adapters'); const a = await loadAdapters(); await (a as any).payrollRepo.upsert({ userEmail: email, month, baseSalary: base, bonus, total: base+bonus }); onSaved() }} className="rounded bg-gray-900 px-3 py-1 text-white">儲存</button>
     </div>
   )
 }
@@ -110,8 +110,9 @@ function SupportPayrollCard({ month, viewEmail }: { month: string; viewEmail?: s
   const net = Math.max(0, gross - totalDeduct)
 
   const save = async()=>{
-    const { payrollRepo } = await import('../../adapters/local/payroll')
-    await payrollRepo.upsert({ userEmail: email, month, breakdown: { ...form, gross, net }, total: net })
+    const { loadAdapters } = await import('../../adapters')
+    const a = await loadAdapters()
+    await (a as any).payrollRepo.upsert({ userEmail: email, month, breakdown: { ...form, gross, net }, total: net })
     alert('已儲存客服薪資表')
   }
 

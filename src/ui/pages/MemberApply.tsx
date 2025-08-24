@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { memberApplicationRepo } from '../../adapters/local/members'
+import { loadAdapters } from '../../adapters'
 
 export default function MemberApplyPage(){
   const [form, setForm] = useState({ name:'', email:'', phone:'', referrerCode:'' })
@@ -7,7 +7,7 @@ export default function MemberApplyPage(){
   const [err, setErr] = useState('')
   const submit = async (e: React.FormEvent)=>{
     e.preventDefault(); setErr('')
-    try { await memberApplicationRepo.submit({ name: form.name, email: form.email||undefined, phone: form.phone||undefined, referrerCode: form.referrerCode||undefined }); setOk(true) }
+    try { const a = await loadAdapters(); await (a as any).memberApplicationRepo.submit({ name: form.name, email: form.email||undefined, phone: form.phone||undefined, referrerCode: form.referrerCode||undefined }); setOk(true) }
     catch(e:any){ setErr(e?.message||'送出失敗') }
   }
   if (ok) return (

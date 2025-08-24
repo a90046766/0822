@@ -93,6 +93,7 @@ function DesktopNav() {
   { to: '/orders', label: '訂單管理', perm: 'orders.list' },
   { to: '/products', label: '產品管理', perm: 'products.manage' },
   { to: '/inventory', label: '庫存管理', perm: 'inventory.manage' },
+  { to: '/used-items', label: '二手清單', perm: 'inventory.manage' },
   { to: '/notifications', label: '通知中心', perm: 'notifications.read' },
   { to: '/schedule', label: '排班/派工', perm: 'technicians.schedule.view' },
   { to: '/customers', label: '客戶管理', perm: 'customers.manage' },

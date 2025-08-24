@@ -15,6 +15,14 @@ export async function loadAdapters() {
           await a.productRepo.upsert({ id: '', name: '倒T型抽油煙機清洗', unitPrice: 2200, groupPrice: 2000, groupMinQty: 2, description: '不鏽鋼倒T型抽油煙機，包含內部機械清洗', imageUrls: [], safeStock: 20 } as any)
           await a.productRepo.upsert({ id: '', name: '傳統雙渦輪抽油煙機清洗', unitPrice: 1800, groupPrice: 1600, groupMinQty: 2, description: '傳統型雙渦輪抽油煙機清洗保養', imageUrls: [], safeStock: 20 } as any)
         }
+        // 首次技師資料（空表時種子兩名預設技師）
+        try {
+          const techs = await (a as any).technicianRepo?.list?.()
+          if (Array.isArray(techs) && techs.length === 0) {
+            await (a as any).technicianRepo.upsert({ name: '楊小飛', shortName: '小飛', email: 'jason660628@yahoo.com.tw', phone: '0913788051', region: 'north', status: 'active' })
+            await (a as any).technicianRepo.upsert({ name: '洗小濯', shortName: '小濯', email: 'xiaofu888@yahoo.com.tw', phone: '0986985725', region: 'north', status: 'active' })
+          }
+        } catch {}
       } catch {
         // 任一 API 失敗 → 回退本地
         return await import('./local/_exports')

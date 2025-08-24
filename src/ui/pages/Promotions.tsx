@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { promotionsRepo } from '../../adapters/local/promotions'
+import { loadAdapters } from '../../adapters'
 import { authRepo } from '../../adapters/local/auth'
 import { Navigate } from 'react-router-dom'
 import { compressImageToDataUrl } from '../../utils/image'
@@ -9,8 +9,8 @@ export default function PromotionsPage() {
   if (u && u.role==='technician') return <Navigate to="/dispatch" replace />
   const [rows, setRows] = useState<any[]>([])
   const [edit, setEdit] = useState<any | null>(null)
-  const load = async () => setRows(await promotionsRepo.list())
-  useEffect(() => { load() }, [])
+  const [repos, setRepos] = useState<any>(null)
+  useEffect(() => { (async()=>{ const a = await loadAdapters(); setRepos(a); setRows(await (a as any).promotionsRepo.list()) })() }, [])
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -26,7 +26,7 @@ export default function PromotionsPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={()=>setEdit(p)} className="rounded-lg bg-gray-900 px-3 py-1 text-white">編輯</button>
-              <button onClick={async()=>{ const { confirmTwice } = await import('../kit'); if(await confirmTwice('確認刪除？','刪除後無法復原，仍要刪除？')) { await promotionsRepo.remove(p.id); load() } }} className="rounded-lg bg-rose-500 px-3 py-1 text-white">刪除</button>
+              <button onClick={async()=>{ const { confirmTwice } = await import('../kit'); if(await confirmTwice('確認刪除？','刪除後無法復原，仍要刪除？')) { await (repos as any).promotionsRepo.remove(p.id); setRows(await (repos as any).promotionsRepo.list()) } }} className="rounded-lg bg-rose-500 px-3 py-1 text-white">刪除</button>
             </div>
           </div>
         </div>
@@ -59,7 +59,7 @@ export default function PromotionsPage() {
             </div>
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={()=>setEdit(null)} className="rounded-lg bg-gray-100 px-3 py-1">取消</button>
-              <button onClick={async()=>{ await promotionsRepo.upsert(edit); setEdit(null); load() }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">儲存</button>
+              <button onClick={async()=>{ await (repos as any).promotionsRepo.upsert(edit); setEdit(null); setRows(await (repos as any).promotionsRepo.list()) }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">儲存</button>
             </div>
           </div>
         </div>

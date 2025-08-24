@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { technicianApplicationRepo } from '../../adapters/local/technicians'
+import { loadAdapters } from '../../adapters'
 
 export default function TechnicianApplyPage() {
   const [form, setForm] = useState({
@@ -23,7 +23,8 @@ export default function TechnicianApplyPage() {
     setError('')
 
     try {
-      await technicianApplicationRepo.submit({
+      const a = await loadAdapters()
+      await (a as any).technicianApplicationRepo.submit({
         name: form.name,
         shortName: form.shortName || form.name,
         email: form.email,

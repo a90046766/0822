@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { SectionTitle, StatusChip } from '../kit'
-import { technicianApplicationRepo, technicianRepo } from '../../adapters/local/technicians'
-import { staffRepo, staffApplicationRepo } from '../../adapters/local/staff'
-import { memberRepo, memberApplicationRepo } from '../../adapters/local/members'
+import { loadAdapters } from '../../adapters'
 import type { TechnicianApplication } from '../../core/repository'
 
 export default function ApprovalsPage() {
@@ -13,10 +11,11 @@ export default function ApprovalsPage() {
 
   const loadData = async () => {
     try {
+      const a = await loadAdapters()
       const [ta, sa, ma] = await Promise.all([
-        technicianApplicationRepo.listPending(),
-        staffApplicationRepo.listPending(),
-        memberApplicationRepo.listPending(),
+        (a as any).technicianApplicationRepo.listPending(),
+        (a as any).staffApplicationRepo.listPending(),
+        (a as any).memberApplicationRepo.listPending(),
       ])
       setTechApps(ta); setStaffApps(sa); setMemberApps(ma)
     } catch (err) {
@@ -35,16 +34,17 @@ export default function ApprovalsPage() {
     setLoading(true)
     try {
       // 核准申請
-      await technicianApplicationRepo.approve(id)
+      const a = await loadAdapters()
+      await (a as any).technicianApplicationRepo.approve(id)
       // 技師唯一化（以 email 為準）：若存在則更新，不存在才新增
       try {
         const emailLc = app.email.trim().toLowerCase()
-        const list = await technicianRepo.list()
+        const list = await (a as any).technicianRepo.list()
         const existed = list.find(t => (t.email || '').toLowerCase() === emailLc)
         if (existed) {
-          await technicianRepo.upsert({ id: existed.id, name: app.name, shortName: app.shortName || app.name, email: emailLc, phone: app.phone, region: app.region as any, status: 'active' })
+          await (a as any).technicianRepo.upsert({ id: existed.id, name: app.name, shortName: app.shortName || app.name, email: emailLc, phone: app.phone, region: app.region as any, status: 'active' })
         } else {
-          await technicianRepo.upsert({ name: app.name, shortName: app.shortName || app.name, email: emailLc, phone: app.phone, region: app.region as any, status: 'active' })
+          await (a as any).technicianRepo.upsert({ name: app.name, shortName: app.shortName || app.name, email: emailLc, phone: app.phone, region: app.region as any, status: 'active' })
         }
       } catch {}
       
@@ -77,12 +77,12 @@ export default function ApprovalsPage() {
     const { confirmTwice } = await import('../kit'); if(!(await confirmTwice(`確定核准員工「${app.name}」?`, '核准後不可回到待審，仍要核准？'))) return
     setLoading(true)
     try {
-      await staffApplicationRepo.approve(app.id)
+      const a = await loadAdapters(); await (a as any).staffApplicationRepo.approve(app.id)
       // 唯一化：email 存在則更新，不存在則新增
-      const list = await staffRepo.list()
+      const list = await (a as any).staffRepo.list()
       const existed = list.find(s => s.email.toLowerCase() === (app.email||'').toLowerCase())
-      if (existed) await staffRepo.upsert({ id: existed.id, name: app.name, shortName: app.shortName||app.name, email: app.email, phone: app.phone, role: app.role, status: 'active' } as any)
-      else await staffRepo.upsert({ name: app.name, shortName: app.shortName||app.name, email: app.email, phone: app.phone, role: app.role, status: 'active' } as any)
+      if (existed) await (a as any).staffRepo.upsert({ id: existed.id, name: app.name, shortName: app.shortName||app.name, email: app.email, phone: app.phone, role: app.role, status: 'active' } as any)
+      else await (a as any).staffRepo.upsert({ name: app.name, shortName: app.shortName||app.name, email: app.email, phone: app.phone, role: app.role, status: 'active' } as any)
       await loadData(); alert('核准成功')
     } catch(e:any){ alert(e?.message||'失敗') } finally { setLoading(false) }
   }
@@ -92,17 +92,14 @@ export default function ApprovalsPage() {
     const { confirmTwice } = await import('../kit'); if(!(await confirmTwice(`確定核准會員「${app.name}」?`, '核准後不可回到待審，仍要核准？'))) return
     setLoading(true)
     try {
-      await memberApplicationRepo.approve(app.id)
+      const a = await loadAdapters(); await (a as any).memberApplicationRepo.approve(app.id)
       // 唯一化：email 命中則更新，否則建立 MO 碼
       if (app.email) {
-        const existed = await memberRepo.findByEmail(app.email)
-        if (existed) {
-          await memberRepo.upsert({ ...existed, name: app.name, phone: app.phone, referrerCode: app.referrerCode })
-        } else {
-          await memberRepo.create({ name: app.name, email: app.email, phone: app.phone, referrerCode: app.referrerCode })
-        }
+        const existed = await (a as any).memberRepo.findByEmail(app.email)
+        if (existed) await (a as any).memberRepo.upsert({ ...existed, name: app.name, phone: app.phone, referrerCode: app.referrerCode })
+        else await (a as any).memberRepo.create({ name: app.name, email: app.email, phone: app.phone, referrerCode: app.referrerCode })
       } else {
-        await memberRepo.create({ name: app.name, phone: app.phone, referrerCode: app.referrerCode })
+        await (a as any).memberRepo.create({ name: app.name, phone: app.phone, referrerCode: app.referrerCode })
       }
       await loadData(); alert('核准成功')
     } catch(e:any){ alert(e?.message||'失敗') } finally { setLoading(false) }

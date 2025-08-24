@@ -9,6 +9,11 @@ function toDbRow(input: Partial<Product>): any {
     groupMinQty: 'group_min_qty',
     imageUrls: 'image_urls',
     safeStock: 'safe_stock',
+    category: 'category',
+    modeCode: 'mode_code',
+    categoryId: 'category_id',
+    defaultQuantity: 'default_quantity',
+    soldCount: 'sold_count',
   }
   for (const [camel, snake] of Object.entries(map)) {
     if (camel in r) r[snake] = (r as any)[camel]
@@ -27,6 +32,16 @@ function fromDbRow(row: any): Product {
     description: r.description || '',
     imageUrls: r.image_urls ?? r.imageUrls ?? [],
     safeStock: r.safe_stock ?? r.safeStock,
+    // @ts-ignore
+    category: r.category,
+    // @ts-ignore
+    modeCode: r.mode_code,
+    // @ts-ignore
+    categoryId: r.category_id,
+    // @ts-ignore
+    defaultQuantity: r.default_quantity ?? 1,
+    // @ts-ignore
+    soldCount: r.sold_count ?? 0,
     updatedAt: r.updated_at ?? new Date().toISOString(),
   }
 }

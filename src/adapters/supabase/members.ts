@@ -1,5 +1,6 @@
 import type { MemberRepo, Member } from '../../core/repository'
 import { supabase } from '../../utils/supabase'
+import type { MemberApplicationRepo, MemberApplication } from '../../core/repository'
 
 function fromRow(r: any): Member {
   return {
@@ -56,5 +57,32 @@ class SupabaseMemberRepo implements MemberRepo {
 }
 
 export const memberRepo: MemberRepo = new SupabaseMemberRepo()
+
+// Member applications (for approvals)
+function fromMemberAppRow(r: any): MemberApplication {
+  return { id: r.id, name: r.name, email: r.email || undefined, phone: r.phone || undefined, referrerCode: r.referrer_code || undefined, status: r.status, appliedAt: r.applied_at }
+}
+
+class SupabaseMemberApplicationRepo implements MemberApplicationRepo {
+  async listPending(): Promise<MemberApplication[]> {
+    const { data, error } = await supabase.from('member_applications').select('*').eq('status','pending').order('applied_at',{ ascending: false })
+    if (error) throw error
+    return (data || []).map(fromMemberAppRow)
+  }
+  async submit(app: Omit<MemberApplication, 'id' | 'status' | 'appliedAt'>): Promise<void> {
+    const { error } = await supabase.from('member_applications').insert({ name: app.name, email: app.email, phone: app.phone, referrer_code: app.referrerCode, status: 'pending' })
+    if (error) throw error
+  }
+  async approve(id: string): Promise<void> {
+    const { error } = await supabase.from('member_applications').update({ status: 'approved' }).eq('id', id)
+    if (error) throw error
+  }
+  async reject(id: string): Promise<void> {
+    const { error } = await supabase.from('member_applications').update({ status: 'rejected' }).eq('id', id)
+    if (error) throw error
+  }
+}
+
+export const memberApplicationRepo: MemberApplicationRepo = new SupabaseMemberApplicationRepo()
 
 

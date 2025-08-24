@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { staffApplicationRepo } from '../../adapters/local/staff'
+import { loadAdapters } from '../../adapters'
 
 export default function StaffApplyPage(){
   const [form, setForm] = useState({ name:'', shortName:'', email:'', phone:'', role:'support' as 'support'|'sales' })
@@ -7,7 +7,7 @@ export default function StaffApplyPage(){
   const [err, setErr] = useState('')
   const submit = async (e: React.FormEvent)=>{
     e.preventDefault(); setErr('')
-    try { await staffApplicationRepo.submit({ name: form.name, shortName: form.shortName||undefined, email: form.email, phone: form.phone||undefined, role: form.role }); setOk(true) }
+    try { const a = await loadAdapters(); await (a as any).staffApplicationRepo.submit({ name: form.name, shortName: form.shortName||undefined, email: form.email, phone: form.phone||undefined, role: form.role }); setOk(true) }
     catch(e:any){ setErr(e?.message||'送出失敗') }
   }
   if (ok) return (

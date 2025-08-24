@@ -3,3 +3,6 @@ dist_old/
 00000/
 build/
 out/
+
+# Local Netlify folder
+.netlify

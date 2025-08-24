@@ -241,7 +241,7 @@ export default function TechnicianSchedulePage() {
                           <div key={i} className="rounded bg-white p-2 text-xs">
                             <div>工單：{order.id}</div>
                             <div>時間：{order.preferredTimeStart} - {order.preferredTimeEnd}</div>
-                            <div>區域：{order.region || '未指定'}</div>
+                            <div>區域：{(() => { const firstName = (order.assignedTechnicians||[])[0]; const t = techs.find((x:any)=>x.name===firstName); return t?.region ? (t.region==='all'?'全區':t.region) : '未指定' })()}</div>
                             <div>數量：{order.serviceItems?.length || 0} 項</div>
                           </div>
                         ))}

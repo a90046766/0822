@@ -105,7 +105,7 @@ function DesktopNav() {
     { to: '/schedule', label: '排班/派工', perm: 'technicians.schedule.view' },
     { to: '/customers', label: '客戶管理', perm: 'customers.manage' },
     { to: '/members', label: '會員管理', perm: 'customers.manage' },
-    { to: '/reports', label: '回報中心', perm: 'reports.view' },
+    { to: '/report-center', label: '回報中心', perm: 'reports.view' },
     { to: '/payroll', label: '薪資/分潤', perm: 'payroll.view' },
     { to: '/documents', label: '文件管理', perm: 'documents.manage' },
     { to: '/models', label: '機型管理', perm: 'models.manage' },
@@ -114,7 +114,7 @@ function DesktopNav() {
   const menuBottom = [
     { to: '/technicians', label: '技師管理', perm: 'technicians.manage' },
     { to: '/staff', label: '員工管理', perm: 'staff.manage' },
-    { to: '/reports', label: '報表/回報', perm: 'reports.manage' }
+    { to: '/reports', label: '報表', perm: 'reports.manage' }
   ]
 
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -156,7 +156,7 @@ function DesktopNav() {
       : to==='/orders' ? (counts.orders||0)
       : to==='/schedule' ? (counts.schedule||0)
       : to==='/reservations' ? (counts.reservations||0)
-      : to==='/reports' ? (counts.reports||0)
+      : to==='/report-center' ? (counts.reports||0)
       : 0
     return <Item key={to} to={to} label={label} badge={badge} disabled={!allowed} />
   }

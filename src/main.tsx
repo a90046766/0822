@@ -30,6 +30,7 @@ import MembersPage from './ui/pages/Members'
 import CustomersPage from './ui/pages/Customers'
 import PayrollPage from './ui/pages/Payroll'
 import ReportsPage from './ui/pages/Reports'
+import ReportCenterPage from './ui/pages/ReportCenter'
 
 // 權限保護
 import { loadAdapters } from './adapters/index'
@@ -98,6 +99,7 @@ function PrivateRoute({ children, permission }: { children: React.ReactNode; per
           <Route path="/customers" element={<PrivateRoute permission="customers.manage"><CustomersPage /></PrivateRoute>} />
           <Route path="/payroll" element={<PrivateRoute permission="payroll.view"><PayrollPage /></PrivateRoute>} />
           <Route path="/reports" element={<PrivateRoute permission="reports.view"><ReportsPage /></PrivateRoute>} />
+          <Route path="/report-center" element={<PrivateRoute permission="reports.view"><ReportCenterPage /></PrivateRoute>} />
           <Route path="/me" element={<PrivateRoute><PageProfile /></PrivateRoute>} />
         </Route>
         </Routes>

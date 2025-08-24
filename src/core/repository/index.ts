@@ -251,12 +251,16 @@ export interface ReportMessage {
 
 export interface ReportThread {
   id: string
-  subject: string
+  subject?: string
+  body?: string
   category: 'complaint' | 'announce' | 'reminder' | 'other'
   level: 'normal' | 'urgent' | 'critical'
   target: 'tech' | 'all' | 'subset'
   targetEmails?: string[]
   status: 'open' | 'closed'
+  orderId?: string
+  attachments?: Array<{ name: string; dataUrl: string }>
+  readByEmails?: string[]
   messages: ReportMessage[]
   createdAt: string
   closedAt?: string
@@ -435,6 +439,10 @@ export interface ReportsRepo {
   close(id: string): Promise<void>
   removeThread(id: string): Promise<void>
   removeMessage(threadId: string, messageId: string): Promise<void>
+  update(id: string, patch: Partial<ReportThread>): Promise<void>
+  markRead(id: string, email: string): Promise<void>
+  bulkClose(ids: string[]): Promise<void>
+  bulkMarkRead(ids: string[], email: string): Promise<void>
 }
 
 export interface PayrollRepo {

@@ -74,7 +74,7 @@ class SupabaseOrderRepo implements OrderRepo {
   async list(): Promise<Order[]> {
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
+      .select('id, customer_name, customer_phone, customer_address, preferred_date, preferred_time_start, preferred_time_end, platform, referrer_code, member_id, service_items, assigned_technicians, signature_technician, signatures, photos, photos_before, photos_after, payment_method, payment_status, points_used, points_deduct_amount, category, channel, used_item_id, work_started_at, work_completed_at, service_finished_at, canceled_reason, status, created_at, updated_at')
       .order('created_at', { ascending: false })
     if (error) throw error
     return (data || []).map(fromDbRow) as any
@@ -83,7 +83,7 @@ class SupabaseOrderRepo implements OrderRepo {
   async get(id: string): Promise<Order | null> {
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
+      .select('id, customer_name, customer_phone, customer_address, preferred_date, preferred_time_start, preferred_time_end, platform, referrer_code, member_id, service_items, assigned_technicians, signature_technician, signatures, photos, photos_before, photos_after, payment_method, payment_status, points_used, points_deduct_amount, category, channel, used_item_id, work_started_at, work_completed_at, service_finished_at, canceled_reason, status, created_at, updated_at')
       .eq('id', id)
       .single()
     if (error) {

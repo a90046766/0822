@@ -16,7 +16,7 @@ export default function ReportCenterPage(){
   const [checked, setChecked] = useState<Record<string, boolean>>({})
   const me = authRepo.getCurrentUser()
 
-  useEffect(()=>{ (async()=>{ try{ const a = await loadAdapters(); const [techs, staffs] = await Promise.all([a.technicianRepo?.list?.()||[], a.staffRepo?.list?.()||[]]); const list = [...techs, ...staffs].map((p:any)=>({ id:p.id, name:p.name, email:p.email })) ; setPeople(list) }catch{} })() },[])
+  useEffect(()=>{ (async()=>{ try{ const a: any = await loadAdapters(); const techRepo = a?.technicianRepo; const staffRepo = a?.staffRepo; const [techs, staffs] = await Promise.all([techRepo?.list?.()||[], staffRepo?.list?.()||[]]); const list = [...(techs||[]), ...(staffs||[])].map((p:any)=>({ id:p.id, name:p.name, email:p.email })) ; setPeople(list) }catch{} })() },[])
   const load = async()=> setRows(await reportsRepo.list())
   useEffect(()=>{ load() },[])
   const levelColor = (lvl:string) => lvl==='normal' ? 'bg-blue-100 text-blue-700' : (lvl==='urgent' ? 'bg-pink-100 text-pink-700' : 'bg-red-100 text-red-700')
@@ -148,7 +148,6 @@ export default function ReportCenterPage(){
                 await reportsRepo.create(payload)
                 setOpen(false); setForm({ category:'other', level:'normal', target:'all', body:'', orderId:'', attachments:[] } as any); setSelectedNames({}); load()
               }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">建立</button>
-            </div>
           </div>
         </div>
       )}

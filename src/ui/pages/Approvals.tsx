@@ -40,7 +40,7 @@ export default function ApprovalsPage() {
       try {
         const emailLc = app.email.trim().toLowerCase()
         const list = await (a as any).technicianRepo.list()
-        const existed = list.find(t => (t.email || '').toLowerCase() === emailLc)
+        const existed = list.find((t: any) => (t.email || '').toLowerCase() === emailLc)
         if (existed) {
           await (a as any).technicianRepo.upsert({ id: existed.id, name: app.name, shortName: app.shortName || app.name, email: emailLc, phone: app.phone, region: app.region as any, status: 'active' })
         } else {
@@ -63,7 +63,8 @@ export default function ApprovalsPage() {
     
     setLoading(true)
     try {
-      await technicianApplicationRepo.reject(id)
+      const a = await loadAdapters()
+      await (a as any).technicianApplicationRepo.reject(id)
       await loadData()
       alert('已婉拒')
     } catch (err: any) {
@@ -80,13 +81,13 @@ export default function ApprovalsPage() {
       const a = await loadAdapters(); await (a as any).staffApplicationRepo.approve(app.id)
       // 唯一化：email 存在則更新，不存在則新增
       const list = await (a as any).staffRepo.list()
-      const existed = list.find(s => s.email.toLowerCase() === (app.email||'').toLowerCase())
+      const existed = list.find((s: any) => s.email.toLowerCase() === (app.email||'').toLowerCase())
       if (existed) await (a as any).staffRepo.upsert({ id: existed.id, name: app.name, shortName: app.shortName||app.name, email: app.email, phone: app.phone, role: app.role, status: 'active' } as any)
       else await (a as any).staffRepo.upsert({ name: app.name, shortName: app.shortName||app.name, email: app.email, phone: app.phone, role: app.role, status: 'active' } as any)
       await loadData(); alert('核准成功')
     } catch(e:any){ alert(e?.message||'失敗') } finally { setLoading(false) }
   }
-  const rejectStaff = async (app: any) => { const { confirmTwice } = await import('../kit'); if(!(await confirmTwice(`婉拒員工「${app.name}」?`, '確定婉拒？'))) return; await staffApplicationRepo.reject(app.id); await loadData() }
+  const rejectStaff = async (app: any) => { const { confirmTwice } = await import('../kit'); if(!(await confirmTwice(`婉拒員工「${app.name}」?`, '確定婉拒？'))) return; const a = await loadAdapters(); await (a as any).staffApplicationRepo.reject(app.id); await loadData() }
 
   const approveMember = async (app: any) => {
     const { confirmTwice } = await import('../kit'); if(!(await confirmTwice(`確定核准會員「${app.name}」?`, '核准後不可回到待審，仍要核准？'))) return
@@ -104,7 +105,7 @@ export default function ApprovalsPage() {
       await loadData(); alert('核准成功')
     } catch(e:any){ alert(e?.message||'失敗') } finally { setLoading(false) }
   }
-  const rejectMember = async (app: any) => { const { confirmTwice } = await import('../kit'); if(!(await confirmTwice(`婉拒會員「${app.name}」?`, '確定婉拒？'))) return; await memberApplicationRepo.reject(app.id); await loadData() }
+  const rejectMember = async (app: any) => { const { confirmTwice } = await import('../kit'); if(!(await confirmTwice(`婉拒會員「${app.name}」?`, '確定婉拒？'))) return; const a = await loadAdapters(); await (a as any).memberApplicationRepo.reject(app.id); await loadData() }
 
   return (
     <div className="space-y-6">

@@ -1,7 +1,7 @@
-const WANT_SUPABASE = String(import.meta.env.VITE_USE_SUPABASE || '0') === '1'
+const RAW = String(import.meta.env.VITE_USE_SUPABASE || '').toLowerCase()
+const WANT_SUPABASE = RAW === '1' || RAW === 'true'
 const HAS_SUPABASE_KEYS = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)
 const USE_SUPABASE = WANT_SUPABASE && HAS_SUPABASE_KEYS
-
 export async function loadAdapters() {
   if (USE_SUPABASE) {
     try {

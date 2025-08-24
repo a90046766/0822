@@ -1,7 +1,6 @@
 import type { OrderRepo, Order } from '../../core/repository'
 import { supabase } from '../../utils/supabase'
 
-
 function toDbRow(input: Partial<Order>): any {
   if (!input) return {}
   const map: Record<string, string> = {
@@ -29,11 +28,9 @@ function toDbRow(input: Partial<Order>): any {
     canceledReason: 'canceled_reason',
   }
   const row: any = {}
-  // 駝峰 → 底線（僅加入有值者）
   for (const [camel, snake] of Object.entries(map)) {
     if ((input as any)[camel] !== undefined) row[snake] = (input as any)[camel]
   }
-  // 直接透傳已是 snake_case / 同名欄位
   const passthrough = ['status', 'platform', 'category', 'channel', 'used_item_id', 'created_at', 'updated_at']
   for (const key of passthrough) {
     if ((input as any)[key] !== undefined) row[key] = (input as any)[key]
@@ -77,7 +74,8 @@ function fromDbRow(row: any): Order {
   }
 }
 
-const ORDERS_COLUMNS = 'id,customer_name,customer_phone,customer_address,preferred_date,preferred_time_start,preferred_time_end,platform,referrer_code,member_id,service_items,assigned_technicians,signature_technician,signatures,photos,photos_before,photos_after,payment_method,payment_status,points_used,points_deduct_amount,category,channel,used_item_id,work_started_at,work_completed_at,service_finished_at,canceled_reason,status,created_at,updated_at'
+const ORDERS_COLUMNS =
+  'id,customer_name,customer_phone,customer_address,preferred_date,preferred_time_start,preferred_time_end,platform,referrer_code,member_id,service_items,assigned_technicians,signature_technician,signatures,photos,photos_before,photos_after,payment_method,payment_status,points_used,points_deduct_amount,category,channel,used_item_id,work_started_at,work_completed_at,service_finished_at,canceled_reason,status,created_at,updated_at'
 
 class SupabaseOrderRepo implements OrderRepo {
   async list(): Promise<Order[]> {
@@ -157,32 +155,8 @@ class SupabaseOrderRepo implements OrderRepo {
       .eq('id', id)
     if (error) throw error
 
-    // 後置（容錯）：會員加點 / 扣庫
     try {
       if (one) {
         const sum = (one.serviceItems || []).reduce((s, it: any) => s + (it.unitPrice || 0) * (it.quantity || 0), 0)
         const net = Math.max(0, sum - (one.pointsDeductAmount || 0))
-        if (one.memberId) {
-          const { data: m, error: me } = await supabase.from('members').select('*').eq('id', one.memberId).single()
-          if (!me && m) {
-            const pts = (m.points || 0) + Math.floor(net / 100)
-            await supabase.from('members').update({ points: pts, updated_at: new Date().toISOString() }).eq('id', one.memberId)
-          }
-        }
-        if (Array.isArray(one.serviceItems)) {
-          for (const it of one.serviceItems) {
-            if (it.productId) {
-              const { data: inv } = await supabase.from('inventory').select('*').eq('product_id', it.productId).limit(1).maybeSingle()
-              if (inv) {
-                const qty = Math.max(0, (inv.quantity || 0) - (it.quantity || 0))
-                await supabase.from('inventory').update({ quantity: qty, updated_at: new Date().toISOString() }).eq('id', (inv as any).id)
-              }
-            }
-          }
-        }
-      }
-    } catch {}
-  }
-}
-
-export const orderRepo = new SupabaseOrderRepo()
+        if (one.member

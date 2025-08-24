@@ -88,22 +88,21 @@ function DesktopNav() {
     </Link>
   )
   // 根據權限隱藏功能，並將「技師管理/員工管理/報表管理」移至最下方（客服無權限仍可見為灰階）
-  -  const menuTop = [
-+  const menuTop = [
-     { to: '/dispatch', label: '派工總覽', perm: 'dashboard.view' },
-     { to: '/orders', label: '訂單管理', perm: 'orders.list' },
-+    { to: '/products', label: '產品管理', perm: 'products.manage' },
-+    { to: '/inventory', label: '庫存管理', perm: 'inventory.manage' },
-     { to: '/notifications', label: '通知中心', perm: 'notifications.read' },
-     { to: '/schedule', label: '排班/派工', perm: 'technicians.schedule.view' },
-     { to: '/customers', label: '客戶管理', perm: 'customers.manage' },
-     { to: '/members', label: '會員管理', perm: 'customers.manage' },
-     { to: '/report-center', label: '回報中心', perm: 'reports.view' },
-     { to: '/payroll', label: '薪資/分潤', perm: 'payroll.view' },
-     { to: '/documents', label: '文件管理', perm: 'documents.manage' },
-     { to: '/models', label: '機型管理', perm: 'models.manage' },
-     { to: '/me', label: '個人設定', perm: 'dashboard.view' }
-   ]
+ const menuTop = [
+  { to: '/dispatch', label: '派工總覽', perm: 'dashboard.view' },
+  { to: '/orders', label: '訂單管理', perm: 'orders.list' },
+  { to: '/products', label: '產品管理', perm: 'products.manage' },
+  { to: '/inventory', label: '庫存管理', perm: 'inventory.manage' },
+  { to: '/notifications', label: '通知中心', perm: 'notifications.read' },
+  { to: '/schedule', label: '排班/派工', perm: 'technicians.schedule.view' },
+  { to: '/customers', label: '客戶管理', perm: 'customers.manage' },
+  { to: '/members', label: '會員管理', perm: 'customers.manage' },
+  { to: '/report-center', label: '回報中心', perm: 'reports.view' },
+  { to: '/payroll', label: '薪資/分潤', perm: 'payroll.view' },
+  { to: '/documents', label: '文件管理', perm: 'documents.manage' },
+  { to: '/models', label: '機型管理', perm: 'models.manage' },
+  { to: '/me', label: '個人設定', perm: 'dashboard.view' }
+]
   const menuBottom = [
     { to: '/technicians', label: '技師管理', perm: 'technicians.manage' },
     { to: '/staff', label: '員工管理', perm: 'staff.manage' },

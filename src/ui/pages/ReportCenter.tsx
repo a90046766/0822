@@ -150,6 +150,7 @@ export default function ReportCenterPage(){
               }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">建立</button>
           </div>
         </div>
+        </div>
       )}
 
       {active && (

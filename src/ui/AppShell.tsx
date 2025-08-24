@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { loadAdapters } from '../adapters'
 
 function AppBar() {
-  const title = { '/dispatch': '派工', '/me': '個人', '/notifications': '通知', '/schedule': '排班', '/customers': '客戶', '/payroll': '薪資', '/reports': '回報' } as Record<string,string>
+  const title = { '/dispatch': '派工', '/me': '個人', '/notifications': '通知', '/schedule': '排班', '/customers': '客戶', '/payroll': '薪資', '/reports': '回報', '/report-center': '回報' } as Record<string,string>
   const loc = useLocation()
   const navigate = useNavigate()
   const t = title[loc.pathname] || '訂單內容'
@@ -15,7 +15,7 @@ function AppBar() {
   
   return (
     <div className="sticky top-0 z-20 flex h-14 items-center justify-center bg-brand-500 text-white">
-      <div className="absolute left-3 text-xl" onClick={() => navigate('/dispatch')}>‹</div>
+      <div className="absolute left-3 cursor-pointer text-sm" onClick={() => navigate('/dispatch')}>返回(總覽)</div>
       <div className="text-lg font-semibold">{t}</div>
       <div className="absolute right-3 flex items-center gap-2 text-xs opacity-90">
         <span>{u?.name || ''}</span>
@@ -50,18 +50,8 @@ function TabBar() {
     })
   }, [loc.pathname])
   if (user?.role === 'technician') {
-    return (
-      <div className="sticky bottom-0 z-20 grid grid-cols-5 border-t bg-white py-2 text-center text-sm">
-        <Link to="/orders" className={`${active('/orders')}`}>訂單</Link>
-        <Link to="/schedule" className={`${active('/schedule')}`}>排班</Link>
-        <Link to="/payroll" className={`${active('/payroll')}`}>薪資</Link>
-        <Link to="/notifications" className={`relative ${active('/notifications')}`}>
-          通知
-          {unreadCount > 0 && (<span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-rose-500" />)}
-        </Link>
-        <Link to="/me" className={`${active('/me')}`}>個人</Link>
-      </div>
-    )
+    // 技師：移除底部分頁列
+    return null
   }
   return (
     <div className="sticky bottom-0 z-20 grid grid-cols-5 border-t bg-white py-2 text-center text-sm">
@@ -173,6 +163,22 @@ function DesktopNav() {
   )
 }
 
+function QuoteBar() {
+  const QUOTES = [
+    '專業，來自於每一次的細節堅持。',
+    '把今天做到最好，明天自然會更好。',
+    '職人之道：不急不徐，精準到位。',
+    '真正的效率，是品質與速度的平衡。',
+    '服務的本質，是把別人的事當成自己的事。',
+    '做好一件事，勝過說一百句話。',
+    '每一次完成，都是下一次進步的起點。',
+    '專注當下，持續改善。'
+  ]
+  const idx = Math.abs(new Date().getDate()) % QUOTES.length
+  const text = QUOTES[idx]
+  return <div className="bg-brand-50 px-3 py-1 text-center text-xs text-brand-700">{text}</div>
+}
+
 export default function AppShell() {
   const [blocked, setBlocked] = useState(false)
   useEffect(() => {
@@ -217,14 +223,14 @@ export default function AppShell() {
   // 角色導向版型：技師保留行動版，其餘採用桌面左側選單
   const user = authRepo.getCurrentUser()
   if (user?.role === 'technician') {
-    // 技師：隱藏左側選單，保留上方 AppBar 與下方 TabBar（行動優先）
+    // 技師：隱藏左側選單，保留上方 AppBar，移除底部 TabBar
     return (
       <div className="mx-auto min-h-screen bg-[#F5F7FB]">
         <AppBar />
-        <div className="px-3 pb-14 pt-3">
+        <QuoteBar />
+        <div className="px-3 pt-3 pb-6">
           <Outlet />
         </div>
-        <TabBar />
       </div>
     )
   }
@@ -240,6 +246,7 @@ export default function AppShell() {
             <button onClick={()=>{ authRepo.logout().then(()=>{ window.location.href='/login' }) }} className="rounded bg-gray-100 px-3 py-1 text-sm text-gray-700">登出</button>
           </div>
         </div>
+        <QuoteBar />
         <div className="px-4 py-4">
           <Outlet />
         </div>

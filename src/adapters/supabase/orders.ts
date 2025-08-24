@@ -1,6 +1,5 @@
-  // 臨時：orders 先用本機，避免部署卡住
-  export { orderRepo } from '../local/orders'
-  // export { orderRepo } from './orders' // 先註解
+import type { OrderRepo, Order } from '../../core/repository'
+import { supabase } from '../../utils/supabase'
 
 
 function toDbRow(input: Partial<Order>): any {

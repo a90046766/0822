@@ -1,5 +1,5 @@
 import { SectionTitle, StatusChip, PhotoGrid } from '../kit'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { authRepo } from '../../adapters/local/auth'
 import { can } from '../../utils/permissions'
 import { useEffect, useState } from 'react'
@@ -38,6 +38,7 @@ export default function PageOrderDetail() {
   const [techs, setTechs] = useState<any[]>([])
   const [uploadingBefore, setUploadingBefore] = useState(false)
   const [uploadingAfter, setUploadingAfter] = useState(false)
+  const navigate = useNavigate()
   useEffect(()=>{ (async()=>{ const a = await loadAdapters(); setRepos(a) })() },[])
   useEffect(() => { if (!repos || !id) return; repos.orderRepo.get(id).then(setOrder) }, [id, repos])
   useEffect(()=>{ (async()=>{ try{ if(!repos) return; if(repos.technicianRepo?.list){ const rows = await repos.technicianRepo.list(); setTechs(rows||[]) } }catch{} })() },[repos])
@@ -389,12 +390,73 @@ export default function PageOrderDetail() {
               <span>{memberCode || '—'}{memberName ? `（${memberName}）` : ''}</span>
             )}
           </div>
-          {user?.role!=='technician' && (
-            <div className="pt-2">
-              <Link
-                to={`/schedule?orderId=${order.id}&date=${order.preferredDate||''}&start=${order.preferredTimeStart}&end=${order.preferredTimeEnd}`}
-                className={`inline-block rounded-xl px-4 py-2 text-white ${order.preferredDate && order.preferredTimeStart && order.preferredTimeEnd ? 'bg-brand-500' : 'bg-gray-400 pointer-events-none'}`}
-              >指派技師</Link>
+          {/* 指派技師 */}
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-gray-700">指派技師</div>
+            <div className="rounded-lg bg-gray-50 p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span>已指派：</span>
+                <button 
+                  onClick={() => navigate(`/schedule?orderId=${order.id}&date=${order.preferredDate}&start=${order.preferredTimeStart}&end=${order.preferredTimeEnd}`)}
+                  className="rounded bg-brand-500 px-3 py-1 text-white text-xs"
+                >
+                  選擇技師
+                </button>
+              </div>
+              <div className="mt-2 space-y-1">
+                {order.assignedTechnicians?.length > 0 ? (
+                  order.assignedTechnicians.map((tech: string, i: number) => (
+                    <div key={i} className="flex items-center justify-between rounded bg-white p-2">
+                      <span>{tech}</span>
+                      <button 
+                        onClick={async () => {
+                          const newTechs = [...(order.assignedTechnicians || [])]
+                          newTechs.splice(i, 1)
+                          await repos.orderRepo.update(order.id, { assignedTechnicians: newTechs })
+                          const o = await repos.orderRepo.get(order.id)
+                          setOrder(o)
+                        }}
+                        className="rounded bg-red-100 px-2 py-1 text-xs text-red-600"
+                      >
+                        移除
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-gray-500">尚未指派技師</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 簽名技師 */}
+          {order.assignedTechnicians?.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-gray-700">簽名技師</div>
+              <div className="rounded-lg bg-gray-50 p-3 text-sm">
+                <select 
+                  className="w-full rounded border px-2 py-1"
+                  value={order.signatureTechnician || ''}
+                  onChange={async (e) => {
+                    await repos.orderRepo.update(order.id, { signatureTechnician: e.target.value })
+                    const o = await repos.orderRepo.get(order.id)
+                    setOrder(o)
+                  }}
+                >
+                  <option value="">請選擇簽名技師</option>
+                  {order.assignedTechnicians.map((tech: string) => (
+                    <option key={tech} value={tech}>{tech}</option>
+                  ))}
+                </select>
+                {order.signatureTechnician && (
+                  <div className="mt-2 text-xs text-gray-600">
+                    電話：{(() => {
+                      const tech = techs.find((t: any) => t.name === order.signatureTechnician)
+                      return tech?.phone || '未設定'
+                    })()}
+                  </div>
+                )}
+              </div>
             </div>
           )}
           {order.status==='draft' && can(user,'orders.update') && (

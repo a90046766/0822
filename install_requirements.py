@@ -176,3 +176,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n\n❌ 安裝程序錯誤: {e}")
         input("按 Enter 鍵退出...")
+

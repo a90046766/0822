@@ -181,26 +181,23 @@ export default function TechnicianSchedulePage() {
     return map
   }, [techs])
 
-  const confirmAssign = async () => {
-    if (!orderId) { alert('請從訂單詳情按「指派技師」進入（缺少 orderId）'); return }
-    const chosen = assignable.filter(t => selected[t.id])
-    if (chosen.length === 0) { alert('請先勾選至少一位可用技師'); return }
-    const names = chosen.map(t => t.name)
-    if(!repos) return
-    await repos.orderRepo.update(orderId, { assignedTechnicians: names, preferredDate: date, preferredTimeStart: start, preferredTimeEnd: end })
-    // 雲端模式下，立即建立 technician_work 占用，確保月曆與衝突檢查即時生效
-    const RAW = String(import.meta.env.VITE_USE_SUPABASE || '').toLowerCase()
-    const CLOUD = RAW === '1' || RAW === 'true'
-    if (CLOUD) {
-      for (const t of chosen) {
-        const email = (t.email || '').toLowerCase()
-        if (email) {
-          try { await repos.scheduleRepo.saveWork({ technicianEmail: email, date, startTime: start, endTime: end, orderId }) } catch {}
-        }
-      }
+  const handleAssign = async () => {
+    if (!repos || !orderId) return
+    
+    const selectedTechs = Object.keys(selected).filter(k => selected[k])
+    if (selectedTechs.length === 0) {
+      alert('請選擇至少一名技師')
+      return
     }
-    alert('已指派，返回訂單選擇簽名技師')
-    navigate(`/orders/${orderId}`)
+
+    try {
+      // 更新訂單的指派技師
+      await repos.orderRepo.update(orderId, { assignedTechnicians: selectedTechs })
+      alert('已指派，返回訂單選擇簽名技師')
+      navigate(`/orders/${orderId}`)
+    } catch (error) {
+      alert('指派失敗：' + (error as any)?.message || '未知錯誤')
+    }
   }
 
   return (
@@ -408,7 +405,7 @@ export default function TechnicianSchedulePage() {
           {works.filter(w=>w.date===date).length===0 && <div>無</div>}
         </div>
         <div className="mt-3 flex gap-2">
-          <button onClick={confirmAssign} disabled={!orderId || Object.values(selected).every(v=>!v)} className="rounded-xl px-4 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed bg-brand-500">確認指派</button>
+          <button onClick={handleAssign} disabled={!orderId || Object.values(selected).every(v=>!v)} className="rounded-xl px-4 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed bg-brand-500">確認指派</button>
           <Link to={`/orders/${orderId || 'O01958'}`} className="rounded-xl bg-gray-900 px-4 py-2 text-white">返回訂單</Link>
         </div>
       </div>

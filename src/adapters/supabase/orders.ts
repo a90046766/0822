@@ -83,91 +83,186 @@ const ORDERS_COLUMNS =
 
 class SupabaseOrderRepo implements OrderRepo {
   async list(): Promise<Order[]> {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(ORDERS_COLUMNS)
-      .order('created_at', { ascending: false })
-    if (error) throw error
-    return (data || []).map(fromDbRow) as any
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(ORDERS_COLUMNS)
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('Supabase orders list error:', error)
+        throw new Error(`訂單列表載入失敗: ${error.message}`)
+      }
+      
+      return (data || []).map(fromDbRow) as any
+    } catch (error) {
+      console.error('Supabase orders list exception:', error)
+      throw new Error('訂單列表載入失敗')
+    }
   }
 
   async get(id: string): Promise<Order | null> {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(ORDERS_COLUMNS)
-      .eq('id', id)
-      .single()
-    if (error) {
-      if ((error as any).code === 'PGRST116') return null
-      throw error
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(ORDERS_COLUMNS)
+        .eq('id', id)
+        .single()
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // 找不到記錄，返回 null
+          return null
+        }
+        console.error('Supabase order get error:', error)
+        throw new Error(`訂單載入失敗: ${error.message}`)
+      }
+      
+      return fromDbRow(data)
+    } catch (error) {
+      console.error('Supabase order get exception:', error)
+      throw new Error('訂單載入失敗')
     }
-    return data ? (fromDbRow(data) as any) : null
   }
 
   async create(draft: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order> {
-    const now = new Date().toISOString()
-    const row: any = { ...toDbRow(draft), created_at: now, updated_at: now }
-    const { data, error } = await supabase.from('orders').insert(row).select(ORDERS_COLUMNS).single()
-    if (error) throw error
-    return fromDbRow(data)
+    try {
+      const row = toDbRow(draft)
+      const { data, error } = await supabase
+        .from('orders')
+        .insert(row)
+        .select(ORDERS_COLUMNS)
+        .single()
+      
+      if (error) {
+        console.error('Supabase order create error:', error)
+        throw new Error(`訂單建立失敗: ${error.message}`)
+      }
+      
+      return fromDbRow(data)
+    } catch (error) {
+      console.error('Supabase order create exception:', error)
+      throw new Error('訂單建立失敗')
+    }
   }
 
   async update(id: string, patch: Partial<Order>): Promise<void> {
-    const row: any = { ...toDbRow(patch), updated_at: new Date().toISOString() }
-    const { error } = await supabase.from('orders').update(row).eq('id', id)
-    if (error) throw error
+    try {
+      const row = toDbRow(patch)
+      const { error } = await supabase
+        .from('orders')
+        .update(row)
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Supabase order update error:', error)
+        throw new Error(`訂單更新失敗: ${error.message}`)
+      }
+    } catch (error) {
+      console.error('Supabase order update exception:', error)
+      throw new Error('訂單更新失敗')
+    }
   }
 
   async delete(id: string, reason: string): Promise<void> {
-    const { data, error } = await supabase.from('orders').select('status').eq('id', id).single()
-    if (error) throw error
-    if (!data) throw new Error('訂單不存在')
-    if ((data as any).status !== 'draft') throw new Error('僅草稿可刪除')
-    const { error: e2 } = await supabase.from('orders').delete().eq('id', id)
-    if (e2) throw e2
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Supabase order delete error:', error)
+        throw new Error(`訂單刪除失敗: ${error.message}`)
+      }
+    } catch (error) {
+      console.error('Supabase order delete exception:', error)
+      throw new Error('訂單刪除失敗')
+    }
   }
 
   async cancel(id: string, reason: string): Promise<void> {
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'canceled', canceled_reason: reason, updated_at: new Date().toISOString() })
-      .eq('id', id)
-    if (error) throw error
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'canceled', 
+          canceled_reason: reason,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Supabase order cancel error:', error)
+        throw new Error(`訂單取消失敗: ${error.message}`)
+      }
+    } catch (error) {
+      console.error('Supabase order cancel exception:', error)
+      throw new Error('訂單取消失敗')
+    }
   }
 
   async confirm(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'confirmed', updated_at: new Date().toISOString() })
-      .eq('id', id)
-    if (error) throw error
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'confirmed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Supabase order confirm error:', error)
+        throw new Error(`訂單確認失敗: ${error.message}`)
+      }
+    } catch (error) {
+      console.error('Supabase order confirm exception:', error)
+      throw new Error('訂單確認失敗')
+    }
   }
 
   async startWork(id: string, at: string): Promise<void> {
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'in_progress', work_started_at: at, updated_at: new Date().toISOString() })
-      .eq('id', id)
-    if (error) throw error
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          work_started_at: at,
+          status: 'in_progress',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Supabase order startWork error:', error)
+        throw new Error(`開始工作失敗: ${error.message}`)
+      }
+    } catch (error) {
+      console.error('Supabase order startWork exception:', error)
+      throw new Error('開始工作失敗')
+    }
   }
 
   async finishWork(id: string, at: string): Promise<void> {
-    const one = await this.get(id)
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'completed', work_completed_at: at, service_finished_at: at, updated_at: new Date().toISOString() })
-      .eq('id', id)
-    if (error) throw error
-
     try {
-      if (one) {
-        // 後置處理（暫不執行副作用，避免部署風險）
-        // 可在此呼叫 RPC 做積分/報表彙總
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          work_completed_at: at,
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Supabase order finishWork error:', error)
+        throw new Error(`完成工作失敗: ${error.message}`)
       }
-    } catch {
-      // 忽略非關鍵後置處理錯誤
+    } catch (error) {
+      console.error('Supabase order finishWork exception:', error)
+      throw new Error('完成工作失敗')
     }
   }
 }
 
-export const orderRepo: OrderRepo = new SupabaseOrderRepo()
+export const orderRepo = new SupabaseOrderRepo()

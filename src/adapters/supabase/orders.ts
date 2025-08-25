@@ -35,6 +35,10 @@ function toDbRow(input: Partial<Order>): any {
   for (const key of passthrough) {
     if ((input as any)[key] !== undefined) row[key] = (input as any)[key]
   }
+  // 移除空字串的日期，避免 Postgres date 解析錯誤
+  if (row['preferred_date'] === '' || row['preferred_date'] === undefined) {
+    delete row['preferred_date']
+  }
   return row
 }
 

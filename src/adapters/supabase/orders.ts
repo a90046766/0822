@@ -1,6 +1,21 @@
 import type { OrderRepo, Order } from '../../core/repository'
 import { supabase } from '../../utils/supabase'
 
+// UUID 驗證函數
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  return uuidRegex.test(str)
+}
+
+// 生成 UUID 格式的 ID
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
 function toDbRow(input: Partial<Order>): any {
   if (!input) return {}
   const map: Record<string, string> = {
@@ -103,6 +118,12 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async get(id: string): Promise<Order | null> {
     try {
+      // 檢查 ID 是否為有效的 UUID
+      if (!isValidUUID(id)) {
+        console.warn(`無效的 UUID 格式: ${id}`)
+        return null
+      }
+
       const { data, error } = await supabase
         .from('orders')
         .select(ORDERS_COLUMNS)
@@ -128,6 +149,9 @@ class SupabaseOrderRepo implements OrderRepo {
   async create(draft: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order> {
     try {
       const row = toDbRow(draft)
+      // 為新訂單生成 UUID
+      row.id = generateUUID()
+      
       const { data, error } = await supabase
         .from('orders')
         .insert(row)
@@ -148,6 +172,12 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async update(id: string, patch: Partial<Order>): Promise<void> {
     try {
+      // 檢查 ID 是否為有效的 UUID
+      if (!isValidUUID(id)) {
+        console.error(`無效的 UUID 格式: ${id}`)
+        throw new Error('無效的訂單 ID 格式')
+      }
+
       const row = toDbRow(patch)
       const { error } = await supabase
         .from('orders')
@@ -166,6 +196,12 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async delete(id: string, reason: string): Promise<void> {
     try {
+      // 檢查 ID 是否為有效的 UUID
+      if (!isValidUUID(id)) {
+        console.error(`無效的 UUID 格式: ${id}`)
+        throw new Error('無效的訂單 ID 格式')
+      }
+
       const { error } = await supabase
         .from('orders')
         .delete()
@@ -183,6 +219,12 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async cancel(id: string, reason: string): Promise<void> {
     try {
+      // 檢查 ID 是否為有效的 UUID
+      if (!isValidUUID(id)) {
+        console.error(`無效的 UUID 格式: ${id}`)
+        throw new Error('無效的訂單 ID 格式')
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({ 
@@ -204,6 +246,12 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async confirm(id: string): Promise<void> {
     try {
+      // 檢查 ID 是否為有效的 UUID
+      if (!isValidUUID(id)) {
+        console.error(`無效的 UUID 格式: ${id}`)
+        throw new Error('無效的訂單 ID 格式')
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({ 
@@ -224,6 +272,12 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async startWork(id: string, at: string): Promise<void> {
     try {
+      // 檢查 ID 是否為有效的 UUID
+      if (!isValidUUID(id)) {
+        console.error(`無效的 UUID 格式: ${id}`)
+        throw new Error('無效的訂單 ID 格式')
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({ 
@@ -245,6 +299,12 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async finishWork(id: string, at: string): Promise<void> {
     try {
+      // 檢查 ID 是否為有效的 UUID
+      if (!isValidUUID(id)) {
+        console.error(`無效的 UUID 格式: ${id}`)
+        throw new Error('無效的訂單 ID 格式')
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({ 

@@ -191,11 +191,18 @@ export default function TechnicianSchedulePage() {
     }
 
     try {
+      // 將技師 ID 轉換為技師名稱
+      const selectedTechNames = selectedTechs.map(techId => {
+        const tech = techs.find(t => t.id === techId)
+        return tech ? tech.name : techId
+      })
+
       // 更新訂單的指派技師
-      await repos.orderRepo.update(orderId, { assignedTechnicians: selectedTechs })
+      await repos.orderRepo.update(orderId, { assignedTechnicians: selectedTechNames })
       alert('已指派，返回訂單選擇簽名技師')
       navigate(`/orders/${orderId}`)
     } catch (error) {
+      console.error('指派失敗:', error)
       alert('指派失敗：' + (error as any)?.message || '未知錯誤')
     }
   }

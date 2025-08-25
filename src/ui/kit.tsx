@@ -1,5 +1,6 @@
 import React from 'react'
 export { Button, Card, Badge, Modal, Select, Input, Textarea } from './components/UIComponents'
+export { default as QuoteDisplay, QuoteCard } from './components/QuoteDisplay'
 
 export function SectionTitle({ children }: { children: React.ReactNode }) {
   return (

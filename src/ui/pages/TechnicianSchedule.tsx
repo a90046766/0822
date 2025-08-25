@@ -4,6 +4,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { authRepo } from '../../adapters/local/auth'
 import Calendar from '../components/Calendar'
 import { overlaps } from '../../utils/time'
+import { formatServiceQuantity } from '../../utils/serviceQuantity'
 
 export default function TechnicianSchedulePage() {
   const [leaves, setLeaves] = useState<any[]>([])
@@ -27,6 +28,7 @@ export default function TechnicianSchedulePage() {
   const [dayTooltips, setDayTooltips] = useState<Record<string, string>>({})
   const [skillFilter, setSkillFilter] = useState<Record<string, boolean>>({})
   const [skillMode, setSkillMode] = useState<'all'|'any'>('all')
+  const [selectedRegion, setSelectedRegion] = useState<'north' | 'central' | 'south' | 'all'>('all')
   const SKILLS: Array<[string,string]> = [
     ['acStandard','分離式冷氣'],
     ['washerStandard','直立洗衣機'],
@@ -88,11 +90,18 @@ export default function TechnicianSchedulePage() {
       repos.scheduleRepo.listWork({ start: startMonth, end: endMonth }),
       repos.scheduleRepo.listTechnicianLeaves({ start: startMonth, end: endMonth })
     ]).then(([ws, ls]: any[]) => {
-      setWorks(ws)
+      // 技師只能看到自己的工單
+      let filteredWorks = ws
+      if (user?.role === 'technician') {
+        const userEmail = (user.email || '').toLowerCase()
+        filteredWorks = ws.filter((w: any) => (w.technicianEmail || '').toLowerCase() === userEmail)
+      }
+      
+      setWorks(filteredWorks)
       const map: Record<string, number> = {}
       const overlapCount: Record<string, number> = {}
       const leaveCount: Record<string, number> = {}
-      for (const w of ws) {
+      for (const w of filteredWorks) {
         map[w.date] = (map[w.date] || 0) + 1
         if (overlaps(w.startTime, w.endTime, start, end)) overlapCount[w.date] = (overlapCount[w.date] || 0) + 1
       }
@@ -101,12 +110,20 @@ export default function TechnicianSchedulePage() {
       Object.keys(overlapCount).forEach(d => { const c = overlapCount[d]; emph[d] = c >= 5 ? 'danger' : 'warn' })
       const tips: Record<string, string> = {}
       const days = new Set([...Object.keys(map), ...Object.keys(leaveCount)])
-      days.forEach(d => { const w = map[d] || 0; const l = leaveCount[d] || 0; tips[d] = `工單 ${w}、請假 ${l}` })
+      days.forEach(d => { 
+        const w = map[d] || 0; 
+        const l = leaveCount[d] || 0; 
+        if (user?.role === 'technician') {
+          tips[d] = `我的工單 ${w}、請假 ${l}`
+        } else {
+          tips[d] = `工單 ${w}、請假 ${l}`
+        }
+      })
       setWorkMarkers(map)
       setEmphasisMarkers(emph)
       setDayTooltips(tips)
     })
-  }, [date, start, end, repos])
+  }, [date, start, end, repos, user])
 
   // 當 hoverDate 變更時，補取當日工單細節（數量用）
   useEffect(() => {
@@ -136,9 +153,14 @@ export default function TechnicianSchedulePage() {
   }, [user, supportDate])
 
   const assignable = useMemo(() => {
-    // 可用性：無請假且無工單重疊
+    // 可用性：無請假且無工單重疊，且符合區域篩選
     const selectedKeys = Object.keys(skillFilter).filter(k => skillFilter[k])
     return techs.filter(t => {
+      // 區域篩選
+      if (selectedRegion !== 'all' && t.region !== selectedRegion && t.region !== 'all') {
+        return false
+      }
+      
       const emailLc = (t.email || '').toLowerCase()
       const hasLeave = leaves.some(l => (l.technicianEmail || '').toLowerCase() === emailLc && l.date === date)
       if (hasLeave) return false
@@ -156,7 +178,7 @@ export default function TechnicianSchedulePage() {
       }
       return true
     })
-  }, [techs, leaves, works, date, start, end, skillFilter, skillMode])
+  }, [techs, leaves, works, date, start, end, skillFilter, skillMode, selectedRegion])
 
   const unavailable = useMemo(() => {
     return techs
@@ -264,7 +286,7 @@ export default function TechnicianSchedulePage() {
                             <div>工單：{order.id}</div>
                             <div>時間：{order.preferredTimeStart} - {order.preferredTimeEnd}</div>
                             <div>區域：{(() => { const firstName = (order.assignedTechnicians||[])[0]; const t = techs.find((x:any)=>x.name===firstName); return t?.region ? (t.region==='all'?'全區':t.region) : '未指定' })()}</div>
-                            <div>數量：{order.serviceItems?.length || 0} 項</div>
+                            <div>數量：{formatServiceQuantity(order.serviceItems || [])}</div>
                           </div>
                         ))}
                       </div>
@@ -339,7 +361,51 @@ export default function TechnicianSchedulePage() {
 
       {user?.role!=='technician' && (
       <div className="rounded-2xl bg-white p-4 shadow-card">
-        <div className="text-sm text-gray-500">以下為未在該時段請假的可用技師。可依技能篩選；選擇多人後，回訂單頁指定簽名技師。</div>
+        <div className="text-sm text-gray-500">以下為未在該時段請假的可用技師。可依區域和技能篩選；選擇多人後，回訂單頁指定簽名技師。</div>
+        
+        {/* 區域篩選 */}
+        <div className="mt-3 rounded-lg bg-blue-50 p-3 text-xs">
+          <div className="mb-2 font-semibold">區域篩選</div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1">
+              <input 
+                type="radio" 
+                name="region" 
+                checked={selectedRegion === 'all'} 
+                onChange={() => setSelectedRegion('all')} 
+              />
+              全部區域
+            </label>
+            <label className="flex items-center gap-1">
+              <input 
+                type="radio" 
+                name="region" 
+                checked={selectedRegion === 'north'} 
+                onChange={() => setSelectedRegion('north')} 
+              />
+              北區
+            </label>
+            <label className="flex items-center gap-1">
+              <input 
+                type="radio" 
+                name="region" 
+                checked={selectedRegion === 'central'} 
+                onChange={() => setSelectedRegion('central')} 
+              />
+              中區
+            </label>
+            <label className="flex items-center gap-1">
+              <input 
+                type="radio" 
+                name="region" 
+                checked={selectedRegion === 'south'} 
+                onChange={() => setSelectedRegion('south')} 
+              />
+              南區
+            </label>
+          </div>
+        </div>
+        
         <div className="mt-3 rounded-lg bg-gray-50 p-3 text-xs">
           <div className="mb-2 font-semibold">技能篩選</div>
           <div className="mb-2 flex items-center gap-3">

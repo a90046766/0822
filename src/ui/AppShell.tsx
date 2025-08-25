@@ -4,6 +4,7 @@ import { can } from '../utils/permissions'
 import { notificationRepo } from '../adapters/local/notifications'
 import { useEffect, useState } from 'react'
 import { loadAdapters } from '../adapters'
+import QiuBaoVoiceAssistant from './components/QiuBao'
 
 function AppBar() {
   const title = { '/dispatch': '派工', '/me': '個人', '/notifications': '通知', '/schedule': '排班', '/customers': '客戶', '/payroll': '薪資', '/reports': '回報', '/report-center': '回報' } as Record<string,string>
@@ -82,9 +83,14 @@ function DesktopNav() {
   const Item = ({ to, label, badge, disabled }: { to: string; label: string; badge?: number; disabled?: boolean }) => (
     <Link to={to} className={`relative flex items-center justify-between rounded-lg px-3 py-2 text-sm ${active(to)} ${disabled ? 'pointer-events-none opacity-40' : ''}`}>
       <span className="truncate">{label}</span>
-      {/* 紅點：有數量才顯示；不顯示數字 */}
+      {/* 通知中心：紅點 */}
       {to==='/notifications' && unreadCount>0 && (<span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-rose-500" />)}
-      {badge && badge>0 && to!=='/notifications' && (<span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-rose-500" />)}
+      {/* 其他項目：紅色數字標籤 */}
+      {badge && badge>0 && to!=='/notifications' && (
+        <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-medium text-white">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </Link>
   )
   // 根據權限隱藏功能，並將「技師管理/員工管理/報表管理」移至最下方（客服無權限仍可見為灰階）
@@ -103,6 +109,7 @@ function DesktopNav() {
   { to: '/payroll', label: '薪資/分潤', perm: 'payroll.view' },
   { to: '/documents', label: '文件管理', perm: 'documents.manage' },
   { to: '/models', label: '機型管理', perm: 'models.manage' },
+  { to: '/quotes', label: '職人語錄', perm: 'dashboard.view' },
   { to: '/me', label: '個人設定', perm: 'dashboard.view' }
 ]
   const menuBottom = [
@@ -205,8 +212,8 @@ export default function AppShell() {
         const isUaChMobile = typeof navigator !== 'undefined' && navigator.userAgentData ? navigator.userAgentData.mobile === true : false
         // 指標（觸控為主）
         const isCoarsePointer = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(any-pointer: coarse)').matches : false
-        // 視口寬度（桌面小窗）
-        const isSmallViewport = window.innerWidth < 600
+                 // 視口寬度（桌面小窗）
+         const isSmallViewport = window.innerWidth < 500
         const isMobileLike = isMobileUA || isUaChMobile || isCoarsePointer
         const shouldBlock = !!user && user.role === 'support' && (isMobileLike || (!isMobileLike && isSmallViewport))
         setBlocked(shouldBlock)
@@ -260,6 +267,8 @@ export default function AppShell() {
           <Outlet />
         </div>
       </main>
+      {/* 球寶語音助手 */}
+      <QiuBaoVoiceAssistant />
     </div>
   )
 }

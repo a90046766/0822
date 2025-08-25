@@ -15,9 +15,14 @@ function fromSupportRow(r: any): SupportShift {
 
 function toSupportRow(p: Partial<SupportShift>): any {
   const r: any = { ...p }
-  if ('supportEmail' in r) r.support_email = (r as any).supportEmail
-  if ('updatedAt' in r) delete (r as any).updatedAt
-  return r
+  const out: any = {}
+  if ('id' in r) out.id = r.id
+  if ('supportEmail' in r) out.support_email = (r as any).supportEmail
+  if ('date' in r) out.date = r.date
+  if ('slot' in r) out.slot = r.slot
+  if ('reason' in r) out.reason = r.reason
+  if ('color' in r) out.color = r.color
+  return out
 }
 
 function fromLeaveRow(r: any): TechnicianLeave {
@@ -36,12 +41,16 @@ function fromLeaveRow(r: any): TechnicianLeave {
 
 function toLeaveRow(p: Partial<TechnicianLeave>): any {
   const r: any = { ...p }
-  if ('technicianEmail' in r) r.technician_email = (r as any).technicianEmail
-  if ('fullDay' in r) r.full_day = (r as any).fullDay
-  if ('startTime' in r) r.start_time = (r as any).startTime
-  if ('endTime' in r) r.end_time = (r as any).endTime
-  if ('updatedAt' in r) delete (r as any).updatedAt
-  return r
+  const out: any = {}
+  if ('id' in r) out.id = r.id
+  if ('technicianEmail' in r) out.technician_email = (r as any).technicianEmail
+  if ('date' in r) out.date = r.date
+  if ('fullDay' in r) out.full_day = (r as any).fullDay
+  if ('startTime' in r) out.start_time = (r as any).startTime
+  if ('endTime' in r) out.end_time = (r as any).endTime
+  if ('reason' in r) out.reason = r.reason
+  if ('color' in r) out.color = r.color
+  return out
 }
 
 function fromWorkRow(r: any): TechnicianWork {
@@ -60,13 +69,16 @@ function fromWorkRow(r: any): TechnicianWork {
 
 function toWorkRow(p: Partial<TechnicianWork>): any {
   const r: any = { ...p }
-  if ('technicianEmail' in r) r.technician_email = (r as any).technicianEmail
-  if ('startTime' in r) r.start_time = (r as any).startTime
-  if ('endTime' in r) r.end_time = (r as any).endTime
-  if ('orderId' in r) r.order_id = (r as any).orderId
-  if ('quantityLabel' in r) r.quantity_label = (r as any).quantityLabel
-  if ('updatedAt' in r) delete (r as any).updatedAt
-  return r
+  const out: any = {}
+  if ('id' in r) out.id = r.id
+  if ('technicianEmail' in r) out.technician_email = (r as any).technicianEmail
+  if ('date' in r) out.date = r.date
+  if ('startTime' in r) out.start_time = (r as any).startTime
+  if ('endTime' in r) out.end_time = (r as any).endTime
+  if ('orderId' in r) out.order_id = (r as any).orderId
+  if ('quantityLabel' in r) out.quantity_label = (r as any).quantityLabel
+  if ('color' in r) out.color = r.color
+  return out
 }
 
 class SupabaseScheduleRepo implements ScheduleRepo {

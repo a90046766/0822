@@ -57,6 +57,22 @@ export default function PageOrderDetail() {
   },[order])
   const [products, setProducts] = useState<any[]>([])
   useEffect(()=>{ (async()=>{ if(!repos) return; setProducts(await repos.productRepo.list()) })() },[repos])
+  // 新增：客戶欄位本地編輯狀態
+  const [customerNameEdit, setCustomerNameEdit] = useState('')
+  const [customerPhoneEdit, setCustomerPhoneEdit] = useState('')
+  const [customerEmailEdit, setCustomerEmailEdit] = useState('')
+  const [customerTitleEdit, setCustomerTitleEdit] = useState('')
+  const [customerTaxIdEdit, setCustomerTaxIdEdit] = useState('')
+  const [customerAddressEdit, setCustomerAddressEdit] = useState('')
+  useEffect(()=>{
+    if (!order) return
+    setCustomerNameEdit(order.customerName||'')
+    setCustomerPhoneEdit(order.customerPhone||'')
+    setCustomerEmailEdit(order.customerEmail||'')
+    setCustomerTitleEdit(order.customerTitle||'')
+    setCustomerTaxIdEdit(order.customerTaxId||'')
+    setCustomerAddressEdit(order.customerAddress||'')
+  },[order])
   // 指派技師顯示：若訂單內沒有 names，嘗試從排班 work 反推
   const [derivedAssigned, setDerivedAssigned] = useState<string[]>([])
   useEffect(()=>{ (async()=>{
@@ -156,16 +172,16 @@ export default function PageOrderDetail() {
         )}
         
         <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-          <div>姓名：<input className="w-full rounded border px-2 py-1" value={order.customerName||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerName:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
-          <div>手機：<div className="flex gap-2"><input className="w-full rounded border px-2 py-1" value={order.customerPhone||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerPhone:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /><a href={`tel:${order.customerPhone}`} className="rounded bg-brand-500 px-3 py-1 text-white">撥打</a></div></div>
-          <div>信箱：<input className="w-full rounded border px-2 py-1" value={order.customerEmail||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerEmail:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
-          <div>抬頭：<input className="w-full rounded border px-2 py-1" value={order.customerTitle||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerTitle:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
-          <div>統編：<input className="w-full rounded border px-2 py-1" value={order.customerTaxId||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerTaxId:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
+          <div>姓名：<input className="w-full rounded border px-2 py-1" value={customerNameEdit} onChange={e=>setCustomerNameEdit(e.target.value)} onBlur={async()=>{ if (customerNameEdit===order.customerName) return; await repos.orderRepo.update(order.id, { customerName: customerNameEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
+          <div>手機：<div className="flex gap-2"><input className="w-full rounded border px-2 py-1" value={customerPhoneEdit} onChange={e=>setCustomerPhoneEdit(e.target.value)} onBlur={async()=>{ if (customerPhoneEdit===order.customerPhone) return; await repos.orderRepo.update(order.id, { customerPhone: customerPhoneEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /><a href={`tel:${order.customerPhone}`} className="rounded bg-brand-500 px-3 py-1 text-white">撥打</a></div></div>
+          <div>信箱：<input className="w-full rounded border px-2 py-1" value={customerEmailEdit} onChange={e=>setCustomerEmailEdit(e.target.value)} onBlur={async()=>{ if (customerEmailEdit===(order.customerEmail||'')) return; await repos.orderRepo.update(order.id, { customerEmail: customerEmailEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
+          <div>抬頭：<input className="w-full rounded border px-2 py-1" value={customerTitleEdit} onChange={e=>setCustomerTitleEdit(e.target.value)} onBlur={async()=>{ if (customerTitleEdit===(order.customerTitle||'')) return; await repos.orderRepo.update(order.id, { customerTitle: customerTitleEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
+          <div>統編：<input className="w-full rounded border px-2 py-1" value={customerTaxIdEdit} onChange={e=>setCustomerTaxIdEdit(e.target.value)} onBlur={async()=>{ if (customerTaxIdEdit===(order.customerTaxId||'')) return; await repos.orderRepo.update(order.id, { customerTaxId: customerTaxIdEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /></div>
           <div className="flex items-center gap-2">
             <span>已寄送：</span>
             <input type="checkbox" checked={order.invoiceSent||false} onChange={async e=>{ await repos.orderRepo.update(order.id, { invoiceSent:e.target.checked }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
           </div>
-          <div className="col-span-2">地址：<div className="flex gap-2"><input className="w-full rounded border px-2 py-1" value={order.customerAddress||''} onChange={async e=>{ await repos.orderRepo.update(order.id, { customerAddress:e.target.value }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /><a className="rounded bg-gray-100 px-3 py-1" target="_blank" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customerAddress||'')}`}>地圖</a></div></div>
+          <div className="col-span-2">地址：<div className="flex gap-2"><input className="w-full rounded border px-2 py-1" value={customerAddressEdit} onChange={e=>setCustomerAddressEdit(e.target.value)} onBlur={async()=>{ if (customerAddressEdit===(order.customerAddress||'')) return; await repos.orderRepo.update(order.id, { customerAddress: customerAddressEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /><a className="rounded bg-gray-100 px-3 py-1" target="_blank" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customerAddressEdit||'')}`}>地圖</a></div></div>
           <div>會員編號：<span className="text-gray-700">{memberCode||'—'}</span></div>
         </div>
       </div>
@@ -545,12 +561,9 @@ export default function PageOrderDetail() {
         <SectionTitle>備註</SectionTitle>
         <div className="mt-3">
           <textarea
-            value={order.note || ''}
-            onChange={async (e) => {
-              await repos.orderRepo.update(order.id, { note: e.target.value })
-              const o = await repos.orderRepo.get(order.id)
-              setOrder(o)
-            }}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onBlur={async () => { if ((order.note||'')===note) return; await repos.orderRepo.update(order.id, { note }); const o=await repos.orderRepo.get(order.id); setOrder(o) }}
             placeholder="請輸入備註內容..."
             className="w-full rounded-lg border px-3 py-2 text-sm"
             rows={4}

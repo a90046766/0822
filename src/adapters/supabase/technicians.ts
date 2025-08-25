@@ -37,11 +37,13 @@ async function generateNextCode(): Promise<string> {
   return `SR${next}`
 }
 
+const TECH_COLUMNS = 'id,code,name,short_name,email,phone,region,status,points,revenue_share_scheme,skills,updated_at'
+
 class SupabaseTechnicianRepo implements TechnicianRepo {
   async list(): Promise<Technician[]> {
     const { data, error } = await supabase
       .from('technicians')
-      .select('id,code,name,short_name,email,phone,region,status,points,revenue_share_scheme,skills,updated_at')
+      .select(TECH_COLUMNS)
       .order('updated_at', { ascending: false })
     if (error) throw error
     return (data || []).map(fromDb)
@@ -51,18 +53,18 @@ class SupabaseTechnicianRepo implements TechnicianRepo {
     const now = new Date().toISOString()
     if (tech.id) {
       // 保持 code 不變（不可變）
-      const { data: old, error: ge } = await supabase.from('technicians').select('*').eq('id', tech.id).single()
+      const { data: old, error: ge } = await supabase.from('technicians').select('code').eq('id', tech.id).single()
       if (ge) throw ge
       const keepCode = old?.code
       const payload = { ...toDb(tech), code: keepCode, updated_at: now }
-      const { data, error } = await supabase.from('technicians').update(payload).eq('id', tech.id).select().single()
+      const { data, error } = await supabase.from('technicians').update(payload).eq('id', tech.id).select(TECH_COLUMNS).single()
       if (error) throw error
       return fromDb(data)
     }
     const code = await generateNextCode()
     const genId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? (crypto as any).randomUUID() : undefined
     const payload = { id: genId, ...toDb(tech), code, updated_at: now }
-    const { data, error } = await supabase.from('technicians').insert(payload).select().single()
+    const { data, error } = await supabase.from('technicians').insert(payload).select(TECH_COLUMNS).single()
     if (error) throw error
     return fromDb(data)
   }

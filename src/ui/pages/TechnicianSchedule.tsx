@@ -182,8 +182,9 @@ export default function TechnicianSchedulePage() {
   }, [techs])
 
   const confirmAssign = async () => {
-    if (!orderId) return
+    if (!orderId) { alert('請從訂單詳情按「指派技師」進入（缺少 orderId）'); return }
     const chosen = assignable.filter(t => selected[t.id])
+    if (chosen.length === 0) { alert('請先勾選至少一位可用技師'); return }
     const names = chosen.map(t => t.name)
     if(!repos) return
     await repos.orderRepo.update(orderId, { assignedTechnicians: names, preferredDate: date, preferredTimeStart: start, preferredTimeEnd: end })
@@ -407,7 +408,7 @@ export default function TechnicianSchedulePage() {
           {works.filter(w=>w.date===date).length===0 && <div>無</div>}
         </div>
         <div className="mt-3 flex gap-2">
-          <button onClick={confirmAssign} className="rounded-xl bg-brand-500 px-4 py-2 text-white">確認指派</button>
+          <button onClick={confirmAssign} disabled={!orderId || Object.values(selected).every(v=>!v)} className="rounded-xl px-4 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed bg-brand-500">確認指派</button>
           <Link to={`/orders/${orderId || 'O01958'}`} className="rounded-xl bg-gray-900 px-4 py-2 text-white">返回訂單</Link>
         </div>
       </div>
@@ -465,6 +466,64 @@ export default function TechnicianSchedulePage() {
           </div>
         )}
       </div>
+      )}
+
+      {/* 技師休假申請 Modal */}
+      {techLeaveOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-card text-sm">
+            <div className="mb-2 text-lg font-semibold">技師休假申請</div>
+            <div className="space-y-3">
+              {user?.role!=='technician' && (
+                <div>
+                  <div className="mb-1 text-gray-600">技師 Email</div>
+                  <select className="w-full rounded border px-2 py-1" value={techLeaveEmail} onChange={e=>setTechLeaveEmail(e.target.value)}>
+                    <option value="">請選擇</option>
+                    {techs.map((t:any)=> (
+                      <option key={t.id} value={(t.email||'').toLowerCase()}>{t.name}（{t.email}）</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <div className="mb-1 text-gray-600">日期</div>
+                <input type="date" className="w-full rounded border px-2 py-1" value={techLeaveDate} onChange={e=>setTechLeaveDate(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="mb-1 text-gray-600">時段</div>
+                  <select className="w-full rounded border px-2 py-1" value={techLeaveSlot} onChange={e=>setTechLeaveSlot(e.target.value as any)}>
+                    <option value="am">上午</option>
+                    <option value="pm">下午</option>
+                    <option value="full">全天</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="mb-1 text-gray-600">假別</div>
+                  <select className="w-full rounded border px-2 py-1" value={techLeaveType} onChange={e=>setTechLeaveType(e.target.value as any)}>
+                    <option value="排休">排休</option>
+                    <option value="特休">特休</option>
+                    <option value="事假">事假</option>
+                    <option value="婚假">婚假</option>
+                    <option value="病假">病假</option>
+                    <option value="喪假">喪假</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={()=>setTechLeaveOpen(false)} className="rounded bg-gray-100 px-3 py-1">取消</button>
+                <button onClick={async()=>{
+                  if(!repos) return
+                  const color = (type: string) => type==='排休'||type==='特休'? '#FEF3C7' : type==='事假'? '#DBEAFE' : type==='婚假'? '#FCE7F3' : type==='病假'? '#E5E7EB' : '#9CA3AF'
+                  const email = (user?.role==='technician' ? (user.email||'') : techLeaveEmail || '')
+                  if (!email) { alert('請選擇技師'); return }
+                  const payload:any = { technicianEmail: email.toLowerCase(), date: techLeaveDate, fullDay: techLeaveSlot==='full', startTime: techLeaveSlot==='am'? '09:00' : (techLeaveSlot==='pm' ? '13:00' : undefined), endTime: techLeaveSlot==='am'? '12:00' : (techLeaveSlot==='pm' ? '18:00' : undefined), reason: techLeaveType, color: color(techLeaveType) }
+                  try { await repos.scheduleRepo.saveTechnicianLeave(payload); setTechLeaveOpen(false); const range = { start: techLeaveDate.slice(0,7)+'-01', end: techLeaveDate.slice(0,7)+'-31' }; const ls = await repos.scheduleRepo.listTechnicianLeaves(range); if (user?.role==='technician') { const emailLc=(user.email||'').toLowerCase(); setLeaves(ls.filter((r:any)=> (r.technicianEmail||'').toLowerCase()===emailLc)) } else { setLeaves(ls) } } catch (e:any) { alert('建立休假失敗：' + (e?.message||'')) }
+                }} className="rounded bg-brand-500 px-3 py-1 text-white">送出</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="text-lg font-semibold">技師排班（休假）</div>

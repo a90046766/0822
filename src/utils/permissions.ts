@@ -2,6 +2,7 @@ import type { User } from '../core/repository'
 
 // 權限定義（單一真相）
 export type Permission = 
+  | 'admin'
   | 'dashboard.view'
   | 'orders.list' | 'orders.read' | 'orders.create' | 'orders.update' | 'orders.delete' | 'orders.cancel'
   | 'reservations.manage'
@@ -9,7 +10,7 @@ export type Permission =
   | 'technicians.manage' | 'technicians.schedule.view' | 'technicians.schedule.edit'
   | 'support.schedule.view' | 'support.schedule.edit'
   | 'staff.manage' | 'staff.payroll.view' | 'staff.payroll.edit'
-  | 'products.manage' | 'inventory.manage'
+  | 'products.manage' | 'inventory.manage' | 'inventory.create' | 'inventory.edit' | 'inventory.delete' | 'inventory.purchase'
   | 'promotions.manage' | 'documents.manage' | 'models.manage'
   | 'notifications.send' | 'notifications.read'
   | 'approvals.manage'
@@ -25,6 +26,7 @@ export type Permission =
 // 角色權限矩陣
 const ROLE_PERMISSIONS: Record<User['role'], Permission[]> = {
   admin: [
+    'admin',
     'dashboard.view',
     'orders.list', 'orders.read', 'orders.create', 'orders.update', 'orders.delete', 'orders.cancel',
     'reservations.manage',
@@ -32,7 +34,7 @@ const ROLE_PERMISSIONS: Record<User['role'], Permission[]> = {
     'technicians.manage', 'technicians.schedule.view', 'technicians.schedule.edit',
     'support.schedule.view', 'support.schedule.edit',
     'staff.manage', 'staff.payroll.view', 'staff.payroll.edit', 'payroll.view', 'payroll.edit',
-    'products.manage', 'inventory.manage',
+    'products.manage', 'inventory.manage', 'inventory.create', 'inventory.edit', 'inventory.delete', 'inventory.purchase',
     'promotions.manage', 'documents.manage', 'models.manage',
     'notifications.send', 'notifications.read',
     'approvals.manage',
@@ -50,7 +52,7 @@ const ROLE_PERMISSIONS: Record<User['role'], Permission[]> = {
     'support.schedule.view', 'support.schedule.edit',
     'staff.payroll.view', // 僅自己
     'payroll.view',
-    'products.manage', 'inventory.manage',
+    'products.manage', 'inventory.manage', 'inventory.create', 'inventory.edit', 'inventory.delete', 'inventory.purchase',
     'promotions.manage', 'documents.manage', 'models.manage',
     'notifications.send', 'notifications.read',
     'approvals.manage',

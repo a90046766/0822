@@ -692,14 +692,14 @@ declare
   next_num int;
   order_num text;
 begin
-  -- 獲取當前最大編號
-  select coalesce(max(cast(substring(order_number from 2) as int)), 0) + 1
+  -- 獲取當前最大編號，如果沒有則從 11362 開始
+  select coalesce(max(cast(substring(order_number from 3) as int)), 11361) + 1
   into next_num
   from orders
-  where order_number ~ '^O[0-9]+$';
+  where order_number ~ '^OD[0-9]+$';
   
-  -- 格式化為 O + 6位數字
-  order_num := 'O' || lpad(next_num::text, 6, '0');
+  -- 格式化為 OD + 5位數字
+  order_num := 'OD' || lpad(next_num::text, 5, '0');
   
   return order_num;
 end $$;

@@ -3,6 +3,7 @@ import { loadAdapters } from '../../adapters'
 import { Link } from 'react-router-dom'
 import { authRepo } from '../../adapters/local/auth'
 import { can } from '../../utils/permissions'
+import { validateAddressServiceArea } from '../../utils/location'
 
 export default function ReservationsPage() {
   const [rows, setRows] = useState<any[]>([])
@@ -42,12 +43,47 @@ export default function ReservationsPage() {
     if (!repos || !can(user, 'orders.create')) return
     
     try {
+      // 地址驗證：檢查是否為非標準服務區
+      const addressValidation = validateAddressServiceArea(reservation.customerAddress || '')
+      if (!addressValidation.isValid) {
+        alert(addressValidation.message)
+        return
+      }
+      
+      // 自動新增客戶（如果不存在）
+      if (reservation.customerPhone && reservation.customerName) {
+        try {
+          const existingCustomers = await repos.customerRepo.list()
+          const existingCustomer = existingCustomers.find((c: any) => c.phone === reservation.customerPhone)
+          
+          if (!existingCustomer) {
+            // 創建新客戶
+            const newCustomer = {
+              name: reservation.customerName,
+              phone: reservation.customerPhone,
+              email: reservation.customerEmail || '',
+              addresses: [{
+                id: `ADDR-${Math.random().toString(36).slice(2,8)}`,
+                address: reservation.customerAddress || ''
+              }],
+              notes: '自動從購物車預約新增',
+              blacklisted: false
+            }
+            await repos.customerRepo.upsert(newCustomer)
+            console.log('已自動新增客戶:', reservation.customerName)
+          }
+        } catch (error) {
+          console.log('自動新增客戶失敗:', error)
+          // 不阻擋訂單創建，只記錄錯誤
+        }
+      }
+      
       // 將預約訂單轉換為正式訂單
       const orderData = {
         id: '',
         customerName: reservation.customerName,
         customerPhone: reservation.customerPhone,
-        customerAddress: '',
+        customerAddress: reservation.customerAddress || '',
         preferredDate: '',
         preferredTimeStart: '09:00',
         preferredTimeEnd: '12:00',

@@ -4,6 +4,16 @@ import { Link } from 'react-router-dom'
 import { authRepo } from '../../adapters/local/auth'
 import { can } from '../../utils/permissions'
 import { loadAdapters } from '../../adapters'
+import { 
+  TAIWAN_CITIES, 
+  extractLocationFromAddress, 
+  formatAddressDisplay, 
+  generateGoogleMapsLink,
+  calculateOrderQuantity,
+  formatTechniciansDisplay,
+  calculateFinalAmount,
+  validateServiceArea
+} from '../../utils/location'
 
 export default function OrderManagementPage() {
   const [rows, setRows] = useState<any[]>([])
@@ -13,7 +23,23 @@ export default function OrderManagementPage() {
   const [statusTab, setStatusTab] = useState<'all'|'pending'|'completed'|'closed'>('all')
   const [pf, setPf] = useState<Record<string, boolean>>({})
   const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState<any>({ customerName:'', customerPhone:'', customerAddress:'', preferredDate:'', preferredTimeStart:'09:00', preferredTimeEnd:'12:00', platform:'日', referrerCode:'', serviceItems:[{name:'服務',quantity:1,unitPrice:1000}], assignedTechnicians:[], photos:[], signatures:{} })
+  const [form, setForm] = useState<any>({ 
+    customerName:'', 
+    customerPhone:'', 
+    customerAddress:'', 
+    customerCity:'', 
+    customerDistrict:'', 
+    customerDetailAddress:'', 
+    preferredDate:'', 
+    preferredTimeStart:'09:00', 
+    preferredTimeEnd:'12:00', 
+    platform:'日', 
+    referrerCode:'', 
+    serviceItems:[{name:'服務',quantity:1,unitPrice:1000}], 
+    assignedTechnicians:[], 
+    photos:[], 
+    signatures:{} 
+  })
   const [activePercent, setActivePercent] = useState<number>(0)
   const [products, setProducts] = useState<any[]>([])
   const load = async () => { if (!repos) return; setRows(await repos.orderRepo.list()) }
@@ -94,33 +120,66 @@ export default function OrderManagementPage() {
         {filtered.length>0 && (
           <>
             <button onClick={()=>{
-              const header = ['ID','平台','客戶','時間','金額','推薦碼']
-              const lines = filtered.map((o:any)=>{
-                const amt = (o.serviceItems||[]).reduce((s:number,it:any)=>s+it.unitPrice*it.quantity,0)
-                return [o.id,o.platform,o.customerName,`${(o.preferredDate||'')} ${o.preferredTimeStart}~${o.preferredTimeEnd}`,amt,o.referrerCode||''].join(',')
+              const header = ['項次','日期','平台','訂單編號','地區','數量','服務技師','結案金額']
+              const lines = filtered.map((o:any, index: number)=>{
+                // 提取地址資訊
+                const location = extractLocationFromAddress(o.customerAddress)
+                const region = location.city && location.district ? `${location.city}${location.district}` : o.customerAddress
+                
+                // 計算數量
+                const quantity = calculateOrderQuantity(o.serviceItems || [])
+                
+                // 格式化技師顯示
+                const technicians = formatTechniciansDisplay(o.assignedTechnicians || [])
+                
+                // 計算結案金額
+                const finalAmount = calculateFinalAmount(o.serviceItems || [], o.status)
+                
+                return [
+                  index + 1,
+                  o.preferredDate || '',
+                  o.platform || '',
+                  o.id || '',
+                  region,
+                  quantity,
+                  technicians,
+                  finalAmount
+                ].join(',')
               })
               const csv = [header.join(','),...lines].join('\n')
               const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' })
               const url = URL.createObjectURL(blob)
               const a = document.createElement('a')
               a.href = url
-              a.download = 'orders.csv'
+              a.download = 'orders_report.csv'
               a.click(); URL.revokeObjectURL(url)
-            }} className="ml-auto rounded bg-gray-900 px-2.5 py-1 text-white">匯出列表 CSV</button>
+            }} className="ml-auto rounded bg-gray-900 px-2.5 py-1 text-white">匯出報表 CSV</button>
             <button onClick={()=>{
-              const header = ['ID','平台','客戶','時間','金額','推薦碼']
-              const rowsHtml = filtered.map((o:any)=>{
-                const amt = (o.serviceItems||[]).reduce((s:number,it:any)=>s+it.unitPrice*it.quantity,0)
-                return `<tr><td>${o.id}</td><td>${o.platform}</td><td>${o.customerName}</td><td>${(o.preferredDate||'')} ${o.preferredTimeStart}~${o.preferredTimeEnd}</td><td>${amt}</td><td>${o.referrerCode||''}</td></tr>`
+              const header = ['項次','日期','平台','訂單編號','地區','數量','服務技師','結案金額']
+              const rowsHtml = filtered.map((o:any, index: number)=>{
+                // 提取地址資訊
+                const location = extractLocationFromAddress(o.customerAddress)
+                const region = location.city && location.district ? `${location.city}${location.district}` : o.customerAddress
+                
+                // 計算數量
+                const quantity = calculateOrderQuantity(o.serviceItems || [])
+                
+                // 格式化技師顯示
+                const technicians = formatTechniciansDisplay(o.assignedTechnicians || [])
+                
+                // 計算結案金額
+                const finalAmount = calculateFinalAmount(o.serviceItems || [], o.status)
+                
+                return `<tr><td>${index + 1}</td><td>${o.preferredDate || ''}</td><td>${o.platform || ''}</td><td>${o.id || ''}</td><td>${region}</td><td>${quantity}</td><td>${technicians}</td><td>${finalAmount}</td></tr>`
               }).join('')
               const html = `<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body><table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`
               const blob = new Blob([html], { type: 'application/vnd.ms-excel' })
               const url = URL.createObjectURL(blob)
               const a = document.createElement('a')
               a.href = url
-              a.download = 'orders.xls'
+              a.download = 'orders_report.xls'
               a.click(); URL.revokeObjectURL(url)
-            }} className="rounded bg-brand-600 px-2.5 py-1 text-white">匯出 Excel</button>
+            }} className="rounded bg-brand-600 px-2.5 py-1 text-white">匯出報表 Excel</button>
           </>
         )}
       </div>
@@ -153,7 +212,93 @@ export default function OrderManagementPage() {
             <div className="space-y-2 text-sm">
               <input className="w-full rounded border px-2 py-1" placeholder="客戶姓名" value={form.customerName} onChange={e=>setForm({...form,customerName:e.target.value})} />
               <input className="w-full rounded border px-2 py-1" placeholder="手機" value={form.customerPhone} onChange={e=>setForm({...form,customerPhone:e.target.value})} />
-              <input className="w-full rounded border px-2 py-1" placeholder="地址" value={form.customerAddress} onChange={e=>setForm({...form,customerAddress:e.target.value})} />
+              
+              {/* 地址管理 */}
+              <div className="grid grid-cols-3 gap-2">
+                <select 
+                  className="rounded border px-2 py-1" 
+                  value={form.customerCity} 
+                  onChange={e=>{
+                    const city = e.target.value
+                    setForm({
+                      ...form,
+                      customerCity: city,
+                      customerDistrict: '',
+                      customerAddress: formatAddressDisplay(city, form.customerDistrict, form.customerDetailAddress)
+                    })
+                  }}
+                >
+                  <option value="">選擇縣市</option>
+                  {Object.keys(TAIWAN_CITIES).map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+                
+                <select 
+                  className="rounded border px-2 py-1" 
+                  value={form.customerDistrict} 
+                  onChange={e=>{
+                    const district = e.target.value
+                    setForm({
+                      ...form,
+                      customerDistrict: district,
+                      customerAddress: formatAddressDisplay(form.customerCity, district, form.customerDetailAddress)
+                    })
+                  }}
+                  disabled={!form.customerCity}
+                >
+                  <option value="">選擇區域</option>
+                  {form.customerCity && TAIWAN_CITIES[form.customerCity as keyof typeof TAIWAN_CITIES]?.map(district => (
+                    <option key={district} value={district}>{district}</option>
+                  ))}
+                </select>
+                
+                <input 
+                  className="rounded border px-2 py-1" 
+                  placeholder="詳細地址" 
+                  value={form.customerDetailAddress} 
+                  onChange={e=>{
+                    const detailAddress = e.target.value
+                    setForm({
+                      ...form,
+                      customerDetailAddress: detailAddress,
+                      customerAddress: formatAddressDisplay(form.customerCity, form.customerDistrict, detailAddress)
+                    })
+                  }} 
+                />
+              </div>
+              
+              {/* 地圖連結和地址驗證 */}
+              {form.customerAddress && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">地址：{form.customerAddress}</span>
+                    <a 
+                      href={generateGoogleMapsLink(form.customerCity, form.customerDistrict, form.customerDetailAddress)} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-500 hover:text-blue-700"
+                    >
+                      📍 地圖
+                    </a>
+                  </div>
+                  
+                  {/* 地址驗證提示 */}
+                  {form.customerCity && form.customerDistrict && (
+                    (() => {
+                      const validation = validateServiceArea(form.customerCity, form.customerDistrict)
+                      if (!validation.isValid) {
+                        return (
+                          <div className="text-xs text-red-500 bg-red-50 p-2 rounded border border-red-200">
+                            ⚠️ {validation.message}
+                          </div>
+                        )
+                      }
+                      return null
+                    })()
+                  )}
+                </div>
+              )}
               <div className="flex gap-2">
                 <input type="date" className="w-full rounded border px-2 py-1" value={form.preferredDate} onChange={e=>setForm({...form,preferredDate:e.target.value})} />
                 <input type="time" className="w-full rounded border px-2 py-1" value={form.preferredTimeStart} onChange={e=>setForm({...form,preferredTimeStart:e.target.value})} />
@@ -199,9 +344,46 @@ export default function OrderManagementPage() {
               <button onClick={async()=>{
                 try {
                   if(!repos) return
+                  
+                  // 地址驗證：檢查是否為非標準服務區
+                  const addressValidation = validateServiceArea(form.customerCity, form.customerDistrict)
+                  if (!addressValidation.isValid) {
+                    alert(addressValidation.message)
+                    return
+                  }
+                  
                   // 清洗資料：避免空日期傳到 DB
                   const clean = { ...form }
                   if (!clean.preferredDate) delete (clean as any).preferredDate
+                  
+                  // 自動新增客戶（如果不存在）
+                  if (clean.customerPhone && clean.customerName) {
+                    try {
+                      const existingCustomers = await repos.customerRepo.list()
+                      const existingCustomer = existingCustomers.find((c: any) => c.phone === clean.customerPhone)
+                      
+                      if (!existingCustomer) {
+                        // 創建新客戶
+                        const newCustomer = {
+                          name: clean.customerName,
+                          phone: clean.customerPhone,
+                          email: clean.customerEmail || '',
+                          addresses: [{
+                            id: `ADDR-${Math.random().toString(36).slice(2,8)}`,
+                            address: clean.customerAddress
+                          }],
+                          notes: '自動從訂單新增',
+                          blacklisted: false
+                        }
+                        await repos.customerRepo.upsert(newCustomer)
+                        console.log('已自動新增客戶:', clean.customerName)
+                      }
+                    } catch (error) {
+                      console.log('自動新增客戶失敗:', error)
+                      // 不阻擋訂單創建，只記錄錯誤
+                    }
+                  }
+                  
                   // 折扣處理
                   const percent = await getActivePercent()
                   const items = clean.serviceItems.map((it:any)=> percent>0 ? ({ ...it, unitPrice: Math.round(it.unitPrice * (1 - percent/100)) }) : it)
@@ -212,7 +394,24 @@ export default function OrderManagementPage() {
                   }
                   await repos.orderRepo.create({ ...clean, status:'draft', platform: clean.platform||'日', memberId, serviceItems: items } as any)
                   setCreating(false)
-                  setForm({ customerName:'', customerPhone:'', customerAddress:'', preferredDate:'', preferredTimeStart:'09:00', preferredTimeEnd:'12:00', platform:'日', referrerCode:'', memberCode:'', serviceItems:[{productId:'',name:'服務',quantity:1,unitPrice:1000}], assignedTechnicians:[], photos:[], signatures:{} })
+                  setForm({ 
+                    customerName:'', 
+                    customerPhone:'', 
+                    customerAddress:'', 
+                    customerCity:'', 
+                    customerDistrict:'', 
+                    customerDetailAddress:'', 
+                    preferredDate:'', 
+                    preferredTimeStart:'09:00', 
+                    preferredTimeEnd:'12:00', 
+                    platform:'日', 
+                    referrerCode:'', 
+                    memberCode:'', 
+                    serviceItems:[{productId:'',name:'服務',quantity:1,unitPrice:1000}], 
+                    assignedTechnicians:[], 
+                    photos:[], 
+                    signatures:{} 
+                  })
                   load()
                 } catch (e:any) {
                   alert('建立失敗：' + (e?.message || '未知錯誤'))

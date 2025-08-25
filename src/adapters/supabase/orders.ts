@@ -1,13 +1,13 @@
 import type { OrderRepo, Order } from '../../core/repository'
 import { supabase } from '../../utils/supabase'
 
-// UUID 驗證函數
+// UUID 驗�??�數
 function isValidUUID(str: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
   return uuidRegex.test(str)
 }
 
-// 生成 UUID 格式的 ID
+// ?��? UUID ?��???ID
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0
@@ -50,7 +50,7 @@ function toDbRow(input: Partial<Order>): any {
   for (const key of passthrough) {
     if ((input as any)[key] !== undefined) row[key] = (input as any)[key]
   }
-  // 移除空字串的日期，避免 Postgres date 解析錯誤
+  // 移除空�?串�??��?，避??Postgres date �???�誤
   if (row['preferred_date'] === '' || row['preferred_date'] === undefined) {
     delete row['preferred_date']
   }
@@ -61,7 +61,7 @@ function fromDbRow(row: any): Order {
   const r = row || {}
   const pick = (a: string, b: string) => (r[a] ?? r[b])
   return {
-    // 使用 order_number 作為顯示 ID，如果沒有則使用 UUID
+    // 使用 order_number 作為顯示 ID，�??��??��?使用 UUID
     id: r.order_number || r.id,
     memberId: pick('memberId', 'member_id'),
     customerName: pick('customerName', 'customer_name') || '',
@@ -107,13 +107,13 @@ class SupabaseOrderRepo implements OrderRepo {
       
       if (error) {
         console.error('Supabase orders list error:', error)
-        throw new Error(`訂單列表載入失敗: ${error.message}`)
+        throw new Error(`訂單?�表載入失�?: ${error.message}`)
       }
       
       return (data || []).map(fromDbRow) as any
     } catch (error) {
       console.error('Supabase orders list exception:', error)
-      throw new Error('訂單列表載入失敗')
+      throw new Error('訂單?�表載入失�?')
     }
   }
 
@@ -123,13 +123,13 @@ class SupabaseOrderRepo implements OrderRepo {
         .from('orders')
         .select(ORDERS_COLUMNS)
       
-      // 檢查是否為訂單編號格式（O開頭）
-      if (id.startsWith('O')) {
+      // 檢查?�否?��??�編?�格式�?OD?�頭�?
+      if (id.startsWith('OD')) {
         query = query.eq('order_number', id)
       } else if (isValidUUID(id)) {
         query = query.eq('id', id)
       } else {
-        console.warn(`無效的訂單 ID 格式: ${id}`)
+        console.warn(`?��??��???ID ?��?: ${id}`)
         return null
       }
       
@@ -137,33 +137,33 @@ class SupabaseOrderRepo implements OrderRepo {
       
       if (error) {
         if (error.code === 'PGRST116') {
-          // 找不到記錄，返回 null
+          // ?��??��??��?返�? null
           return null
         }
         console.error('Supabase order get error:', error)
-        throw new Error(`訂單載入失敗: ${error.message}`)
+        throw new Error(`訂單載入失�?: ${error.message}`)
       }
       
       return fromDbRow(data)
     } catch (error) {
       console.error('Supabase order get exception:', error)
-      throw new Error('訂單載入失敗')
+      throw new Error('訂單載入失�?')
     }
   }
 
   async create(draft: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order> {
     try {
       const row = toDbRow(draft)
-      // 為新訂單生成 UUID
+      // ?�新訂單?��? UUID
       row.id = generateUUID()
       
-      // 生成訂單編號
+      // ?��?訂單編�?
       const { data: orderNumberData, error: orderNumberError } = await supabase
         .rpc('generate_order_number')
       
       if (orderNumberError) {
-        console.error('生成訂單編號失敗:', orderNumberError)
-        throw new Error('生成訂單編號失敗')
+        console.error('?��?訂單編�?失�?:', orderNumberError)
+        throw new Error('?��?訂單編�?失�?')
       }
       
       row.order_number = orderNumberData
@@ -176,13 +176,13 @@ class SupabaseOrderRepo implements OrderRepo {
       
       if (error) {
         console.error('Supabase order create error:', error)
-        throw new Error(`訂單建立失敗: ${error.message}`)
+        throw new Error(`訂單建�?失�?: ${error.message}`)
       }
       
       return fromDbRow(data)
     } catch (error) {
       console.error('Supabase order create exception:', error)
-      throw new Error('訂單建立失敗')
+      throw new Error('訂單建�?失�?')
     }
   }
 
@@ -192,25 +192,25 @@ class SupabaseOrderRepo implements OrderRepo {
         .from('orders')
         .update(toDbRow(patch))
       
-      // 檢查是否為訂單編號格式（O開頭）
-      if (id.startsWith('O')) {
+      // 檢查?�否?��??�編?�格式�?O?�頭�?
+      if (id.startsWith('OD')) {
         query = query.eq('order_number', id)
       } else if (isValidUUID(id)) {
         query = query.eq('id', id)
       } else {
-        console.error(`無效的訂單 ID 格式: ${id}`)
-        throw new Error('無效的訂單 ID 格式')
+        console.error(`?��??��???ID ?��?: ${id}`)
+        throw new Error('?��??��???ID ?��?')
       }
       
       const { error } = await query
       
       if (error) {
         console.error('Supabase order update error:', error)
-        throw new Error(`訂單更新失敗: ${error.message}`)
+        throw new Error(`訂單?�新失�?: ${error.message}`)
       }
     } catch (error) {
       console.error('Supabase order update exception:', error)
-      throw new Error('訂單更新失敗')
+      throw new Error('訂單?�新失�?')
     }
   }
 
@@ -220,25 +220,25 @@ class SupabaseOrderRepo implements OrderRepo {
         .from('orders')
         .delete()
       
-      // 檢查是否為訂單編號格式（O開頭）
-      if (id.startsWith('O')) {
+      // 檢查?�否?��??�編?�格式�?O?�頭�?
+      if (id.startsWith('OD')) {
         query = query.eq('order_number', id)
       } else if (isValidUUID(id)) {
         query = query.eq('id', id)
       } else {
-        console.error(`無效的訂單 ID 格式: ${id}`)
-        throw new Error('無效的訂單 ID 格式')
+        console.error(`?��??��???ID ?��?: ${id}`)
+        throw new Error('?��??��???ID ?��?')
       }
       
       const { error } = await query
       
       if (error) {
         console.error('Supabase order delete error:', error)
-        throw new Error(`訂單刪除失敗: ${error.message}`)
+        throw new Error(`訂單?�除失�?: ${error.message}`)
       }
     } catch (error) {
       console.error('Supabase order delete exception:', error)
-      throw new Error('訂單刪除失敗')
+      throw new Error('訂單?�除失�?')
     }
   }
 
@@ -252,25 +252,25 @@ class SupabaseOrderRepo implements OrderRepo {
           updated_at: new Date().toISOString()
         })
       
-      // 檢查是否為訂單編號格式（O開頭）
-      if (id.startsWith('O')) {
+      // 檢查?�否?��??�編?�格式�?O?�頭�?
+      if (id.startsWith('OD')) {
         query = query.eq('order_number', id)
       } else if (isValidUUID(id)) {
         query = query.eq('id', id)
       } else {
-        console.error(`無效的訂單 ID 格式: ${id}`)
-        throw new Error('無效的訂單 ID 格式')
+        console.error(`?��??��???ID ?��?: ${id}`)
+        throw new Error('?��??��???ID ?��?')
       }
       
       const { error } = await query
       
       if (error) {
         console.error('Supabase order cancel error:', error)
-        throw new Error(`訂單取消失敗: ${error.message}`)
+        throw new Error(`訂單?��?失�?: ${error.message}`)
       }
     } catch (error) {
       console.error('Supabase order cancel exception:', error)
-      throw new Error('訂單取消失敗')
+      throw new Error('訂單?��?失�?')
     }
   }
 
@@ -283,25 +283,25 @@ class SupabaseOrderRepo implements OrderRepo {
           updated_at: new Date().toISOString()
         })
       
-      // 檢查是否為訂單編號格式（O開頭）
-      if (id.startsWith('O')) {
+      // 檢查?�否?��??�編?�格式�?O?�頭�?
+      if (id.startsWith('OD')) {
         query = query.eq('order_number', id)
       } else if (isValidUUID(id)) {
         query = query.eq('id', id)
       } else {
-        console.error(`無效的訂單 ID 格式: ${id}`)
-        throw new Error('無效的訂單 ID 格式')
+        console.error(`?��??��???ID ?��?: ${id}`)
+        throw new Error('?��??��???ID ?��?')
       }
       
       const { error } = await query
       
       if (error) {
         console.error('Supabase order confirm error:', error)
-        throw new Error(`訂單確認失敗: ${error.message}`)
+        throw new Error(`訂單確�?失�?: ${error.message}`)
       }
     } catch (error) {
       console.error('Supabase order confirm exception:', error)
-      throw new Error('訂單確認失敗')
+      throw new Error('訂單確�?失�?')
     }
   }
 
@@ -315,25 +315,25 @@ class SupabaseOrderRepo implements OrderRepo {
           updated_at: new Date().toISOString()
         })
       
-      // 檢查是否為訂單編號格式（O開頭）
-      if (id.startsWith('O')) {
+      // 檢查?�否?��??�編?�格式�?O?�頭�?
+      if (id.startsWith('OD')) {
         query = query.eq('order_number', id)
       } else if (isValidUUID(id)) {
         query = query.eq('id', id)
       } else {
-        console.error(`無效的訂單 ID 格式: ${id}`)
-        throw new Error('無效的訂單 ID 格式')
+        console.error(`?��??��???ID ?��?: ${id}`)
+        throw new Error('?��??��???ID ?��?')
       }
       
       const { error } = await query
       
       if (error) {
         console.error('Supabase order startWork error:', error)
-        throw new Error(`開始工作失敗: ${error.message}`)
+        throw new Error(`?��?工�?失�?: ${error.message}`)
       }
     } catch (error) {
       console.error('Supabase order startWork exception:', error)
-      throw new Error('開始工作失敗')
+      throw new Error('?��?工�?失�?')
     }
   }
 
@@ -347,25 +347,25 @@ class SupabaseOrderRepo implements OrderRepo {
           updated_at: new Date().toISOString()
         })
       
-      // 檢查是否為訂單編號格式（O開頭）
-      if (id.startsWith('O')) {
+      // 檢查?�否?��??�編?�格式�?O?�頭�?
+      if (id.startsWith('OD')) {
         query = query.eq('order_number', id)
       } else if (isValidUUID(id)) {
         query = query.eq('id', id)
       } else {
-        console.error(`無效的訂單 ID 格式: ${id}`)
-        throw new Error('無效的訂單 ID 格式')
+        console.error(`?��??��???ID ?��?: ${id}`)
+        throw new Error('?��??��???ID ?��?')
       }
       
       const { error } = await query
       
       if (error) {
         console.error('Supabase order finishWork error:', error)
-        throw new Error(`完成工作失敗: ${error.message}`)
+        throw new Error(`完�?工�?失�?: ${error.message}`)
       }
     } catch (error) {
       console.error('Supabase order finishWork exception:', error)
-      throw new Error('完成工作失敗')
+      throw new Error('完�?工�?失�?')
     }
   }
 }

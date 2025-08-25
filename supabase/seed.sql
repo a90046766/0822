@@ -11,13 +11,13 @@ ON CONFLICT (name) DO NOTHING;
 DO $$
 DECLARE
   order_record RECORD;
-  counter INTEGER := 1;
+  counter INTEGER := 11362;
 BEGIN
   FOR order_record IN 
     SELECT id FROM orders WHERE order_number IS NULL ORDER BY created_at
   LOOP
     UPDATE orders 
-    SET order_number = 'O' || lpad(counter::text, 6, '0')
+    SET order_number = 'OD' || lpad(counter::text, 5, '0')
     WHERE id = order_record.id;
     counter := counter + 1;
   END LOOP;

@@ -6,7 +6,16 @@
   "scripts": {
     "dev": "vite --port 3000 --host",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "backup-local-data": "node scripts/backup-local-data.js",
+    "sync-local-to-supabase": "node scripts/sync-to-supabase.js",
+    "reset-supabase": "npx supabase db reset --linked",
+    "deploy-supabase": "npx supabase db push",
+    "safe-update:add-columns": "node scripts/production-safe-updates.js add-columns",
+    "safe-update:update-data": "node scripts/production-safe-updates.js update-data",
+    "safe-update:add-categories": "node scripts/production-safe-updates.js add-categories",
+    "safe-update:add-functions": "node scripts/production-safe-updates.js add-functions",
+    "safe-update:enhance-documents": "node scripts/production-safe-updates.js enhance-documents"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.55.0",

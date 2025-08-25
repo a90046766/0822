@@ -30,6 +30,9 @@ export interface TechnicianApplication {
   region: 'north' | 'central' | 'south' | 'all'
   status: 'pending' | 'approved' | 'rejected'
   appliedAt: string
+  reviewedBy?: string
+  reviewedAt?: string
+  notes?: string
 }
 
 export interface StaffApplication {
@@ -41,6 +44,9 @@ export interface StaffApplication {
   role: 'support' | 'sales'
   status: 'pending' | 'approved' | 'rejected'
   appliedAt: string
+  reviewedBy?: string
+  reviewedAt?: string
+  notes?: string
 }
 
 export interface MemberApplication {
@@ -51,6 +57,9 @@ export interface MemberApplication {
   referrerCode?: string
   status: 'pending' | 'approved' | 'rejected'
   appliedAt: string
+  reviewedBy?: string
+  reviewedAt?: string
+  notes?: string
 }
 
 export interface Technician {
@@ -124,6 +133,10 @@ export interface Product {
   defaultQuantity?: number
   // 已售出數（供展示）
   soldCount?: number
+  // 產品內容描述
+  content?: string
+  // 服務地區
+  region?: string
   updatedAt: string
 }
 
@@ -176,16 +189,35 @@ export interface TechnicianWork {
   updatedAt: string
 }
 
-// 其他型錄
+// 工具設備庫存
 export interface InventoryItem {
   id: string
   name: string
-  productId?: string
-  quantity: number
   description?: string
-  imageUrls: string[]
+  category?: string
+  quantity: number
   safeStock?: number
+  unitPrice?: number
+  productId?: string
+  imageUrls: string[]
   updatedAt: string
+}
+
+// 購買申請
+export interface PurchaseRequest {
+  id: string
+  itemId: string
+  itemName: string
+  requestedQuantity: number
+  requesterId: string
+  requesterName: string
+  requesterRole: string
+  status: 'pending' | 'approved' | 'rejected' | 'completed'
+  requestDate: string
+  approvedBy?: string
+  approvedDate?: string
+  notes?: string
+  priority: 'low' | 'normal' | 'high' | 'urgent'
 }
 
 export interface Promotion {
@@ -205,6 +237,9 @@ export interface DocumentItem {
   title: string
   url: string
   tags?: string[]
+  category?: string
+  description?: string
+  accessLevel?: 'all' | 'admin' | 'tech' | 'support'
   updatedAt: string
 }
 
@@ -298,12 +333,33 @@ export interface PayrollBreakdown {
 export interface PayrollRecord {
   id: string
   userEmail: string
+  userName: string
+  employeeId: string
   month: string // YYYY-MM
   baseSalary?: number
   bonus?: number
   revenueShareRate?: number // 0~1 之間
   total?: number
   breakdown?: PayrollBreakdown
+  // 新增欄位
+  points?: number
+  pointsMode?: 'accumulate' | 'include' // 累積或併入薪資
+  allowances?: {
+    fuel?: number
+    overtime?: number
+    holiday?: number
+    duty?: number
+  }
+  deductions?: {
+    leave?: number
+    tardiness?: number
+    complaints?: number
+    repairCost?: number
+  }
+  bonusRate?: 10 | 20 | 30 // 獎金比例
+  platform?: '同' | '日' | '黃' | '今'
+  issuanceDate?: string // 發放日期
+  status?: 'pending' | 'issued' | 'confirmed'
   updatedAt: string
 }
 
@@ -399,12 +455,18 @@ export interface NotificationRepo {
   listForUser(user: User): Promise<{ items: Notification[]; unreadIds: Record<string, boolean> }>
   markRead(user: User, id: string): Promise<void>
   push(payload: Omit<Notification, 'id' | 'createdAt' | 'sentAt'> & { sentAt?: string }): Promise<Notification>
+  create(notification: Omit<Notification, 'id' | 'createdAt'>): Promise<Notification>
 }
 
 export interface InventoryRepo {
   list(): Promise<InventoryItem[]>
   upsert(item: Omit<InventoryItem, 'updatedAt'>): Promise<InventoryItem>
   remove(id: string): Promise<void>
+  // 購買申請相關
+  createPurchaseRequest(request: Omit<PurchaseRequest, 'id'>): Promise<PurchaseRequest>
+  getPurchaseRequest(id: string): Promise<PurchaseRequest | null>
+  updatePurchaseRequest(id: string, patch: Partial<PurchaseRequest>): Promise<void>
+  listPurchaseRequests(): Promise<PurchaseRequest[]>
 }
 
 export interface PromotionsRepo {
@@ -457,8 +519,12 @@ export interface ReportsRepo {
 
 export interface PayrollRepo {
   list(user?: User): Promise<PayrollRecord[]>
+  get(id: string): Promise<PayrollRecord | null>
+  getByUserAndMonth(userEmail: string, month: string): Promise<PayrollRecord | null>
   upsert(record: Omit<PayrollRecord, 'id' | 'updatedAt'> & { id?: string }): Promise<PayrollRecord>
   remove(id: string): Promise<void>
+  bulkUpdate(records: Array<{ id: string; patch: Partial<PayrollRecord> }>): Promise<void>
+  calculatePayroll(userEmail: string, month: string): Promise<PayrollRecord>
 }
 
 export interface ReservationsRepo {

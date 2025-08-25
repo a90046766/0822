@@ -84,7 +84,7 @@ function PrivateRoute({ children, permission }: { children: React.ReactNode; per
         <Route element={<PrivateRoute><AppShell /></PrivateRoute>}>
           <Route path="/dispatch" element={<PrivateRoute><PageDispatchHome /></PrivateRoute>} />
           <Route path="/orders/:id" element={<PrivateRoute permission="orders.read"><PageOrderDetail /></PrivateRoute>} />
-          <Route path="/approvals" element={<PrivateRoute permission="approvals.manage"><ApprovalsPage /></PrivateRoute>} />
+          <Route path="/approvals" element={<PrivateRoute permission="admin"><ApprovalsPage /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><NotificationsPage /></PrivateRoute>} />
           <Route path="/schedule" element={<PrivateRoute permission="technicians.schedule.view"><TechnicianSchedulePage /></PrivateRoute>} />
           <Route path="/products" element={<PrivateRoute permission="products.manage"><ProductsPage /></PrivateRoute>} />

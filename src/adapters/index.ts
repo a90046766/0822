@@ -72,4 +72,15 @@ export async function loadAdapters() {
   return await import('./local/_exports')
 }
 
+// 添加 useAuth hook
+export async function useAuth() {
+  const adapters = await loadAdapters()
+  const user = adapters.authRepo.getCurrentUser()
+  
+  return {
+    user,
+    ...adapters
+  }
+}
+
 

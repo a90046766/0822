@@ -51,6 +51,19 @@ class LocalNotificationRepo implements NotificationRepo {
     return item
   }
 
+  async create(notification: Omit<Notification, 'id' | 'createdAt'>): Promise<Notification> {
+    const all = this.load<Notification[]>(this.itemsKey, this.getInitial())
+    const now = new Date().toISOString()
+    const item: Notification = {
+      id: `NTF-${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
+      createdAt: now,
+      sentAt: now,
+      ...notification,
+    }
+    this.save(this.itemsKey, [item, ...all])
+    return item
+  }
+
   private getInitial(): Notification[] {
     const now = new Date().toISOString()
     return [

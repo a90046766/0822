@@ -46,6 +46,24 @@ class SupabaseNotificationRepo implements NotificationRepo {
     if (error) throw error
     return fromRow(data)
   }
+
+  async create(notification: Omit<Notification, 'id' | 'createdAt'>): Promise<Notification> {
+    const now = new Date().toISOString()
+    const row: any = { 
+      title: notification.title, 
+      body: notification.body, 
+      level: notification.level, 
+      target: notification.target, 
+      target_user_email: notification.targetUserEmail, 
+      scheduled_at: notification.scheduledAt, 
+      expires_at: notification.expiresAt, 
+      sent_at: now, 
+      created_at: now 
+    }
+    const { data, error } = await supabase.from('notifications').insert(row).select().single()
+    if (error) throw error
+    return fromRow(data)
+  }
 }
 
 export const notificationRepo: NotificationRepo = new SupabaseNotificationRepo()

@@ -6,6 +6,12 @@ import { useEffect, useState } from 'react'
 import { loadAdapters } from '../../adapters'
 import { compressImageToDataUrl } from '../../utils/image'
 import SignatureModal from '../components/SignatureModal'
+import { 
+  TAIWAN_CITIES, 
+  extractLocationFromAddress, 
+  formatAddressDisplay, 
+  generateGoogleMapsLink
+} from '../../utils/location'
 
 export default function PageOrderDetail() {
   const { id } = useParams()
@@ -65,6 +71,9 @@ export default function PageOrderDetail() {
   const [customerTitleEdit, setCustomerTitleEdit] = useState('')
   const [customerTaxIdEdit, setCustomerTaxIdEdit] = useState('')
   const [customerAddressEdit, setCustomerAddressEdit] = useState('')
+  const [customerCityEdit, setCustomerCityEdit] = useState('')
+  const [customerDistrictEdit, setCustomerDistrictEdit] = useState('')
+  const [customerDetailAddressEdit, setCustomerDetailAddressEdit] = useState('')
   useEffect(()=>{
     if (!order) return
     setCustomerNameEdit(order.customerName||'')
@@ -73,6 +82,12 @@ export default function PageOrderDetail() {
     setCustomerTitleEdit(order.customerTitle||'')
     setCustomerTaxIdEdit(order.customerTaxId||'')
     setCustomerAddressEdit(order.customerAddress||'')
+    
+    // 解析地址
+    const location = extractLocationFromAddress(order.customerAddress||'')
+    setCustomerCityEdit(location.city)
+    setCustomerDistrictEdit(location.district)
+    setCustomerDetailAddressEdit(location.address)
   },[order])
   // 指派技師顯示：若訂單內沒有 names，嘗試從排班 work 反推
   const [derivedAssigned, setDerivedAssigned] = useState<string[]>([])
@@ -182,7 +197,77 @@ export default function PageOrderDetail() {
             <span>已寄送：</span>
             <input type="checkbox" checked={order.invoiceSent||false} onChange={async e=>{ await repos.orderRepo.update(order.id, { invoiceSent:e.target.checked }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} />
           </div>
-          <div className="col-span-2">地址：<div className="flex gap-2"><input className="w-full rounded border px-2 py-1" value={customerAddressEdit} onChange={e=>setCustomerAddressEdit(e.target.value)} onBlur={async()=>{ if (customerAddressEdit===(order.customerAddress||'')) return; await repos.orderRepo.update(order.id, { customerAddress: customerAddressEdit }); const o=await repos.orderRepo.get(order.id); setOrder(o) }} /><a className="rounded bg-gray-100 px-3 py-1" target="_blank" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customerAddressEdit||'')}`}>地圖</a></div></div>
+                        <div className="col-span-2">
+                <div className="mb-2">地址：</div>
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  <select 
+                    className="rounded border px-2 py-1" 
+                    value={customerCityEdit} 
+                    onChange={e=>{
+                      const city = e.target.value
+                      setCustomerCityEdit(city)
+                      setCustomerDistrictEdit('')
+                      const newAddress = formatAddressDisplay(city, '', customerDetailAddressEdit)
+                      setCustomerAddressEdit(newAddress)
+                    }}
+                  >
+                    <option value="">選擇縣市</option>
+                    {Object.keys(TAIWAN_CITIES).map(city => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
+                  
+                  <select 
+                    className="rounded border px-2 py-1" 
+                    value={customerDistrictEdit} 
+                    onChange={e=>{
+                      const district = e.target.value
+                      setCustomerDistrictEdit(district)
+                      const newAddress = formatAddressDisplay(customerCityEdit, district, customerDetailAddressEdit)
+                      setCustomerAddressEdit(newAddress)
+                    }}
+                    disabled={!customerCityEdit}
+                  >
+                    <option value="">選擇區域</option>
+                    {customerCityEdit && TAIWAN_CITIES[customerCityEdit as keyof typeof TAIWAN_CITIES]?.map(district => (
+                      <option key={district} value={district}>{district}</option>
+                    ))}
+                  </select>
+                  
+                  <input 
+                    className="rounded border px-2 py-1" 
+                    placeholder="詳細地址" 
+                    value={customerDetailAddressEdit} 
+                    onChange={e=>{
+                      const detailAddress = e.target.value
+                      setCustomerDetailAddressEdit(detailAddress)
+                      const newAddress = formatAddressDisplay(customerCityEdit, customerDistrictEdit, detailAddress)
+                      setCustomerAddressEdit(newAddress)
+                    }} 
+                  />
+                </div>
+                
+                <div className="flex gap-2">
+                  <input 
+                    className="flex-1 rounded border px-2 py-1" 
+                    value={customerAddressEdit} 
+                    onChange={e=>setCustomerAddressEdit(e.target.value)} 
+                    onBlur={async()=>{ 
+                      if (customerAddressEdit===(order.customerAddress||'')) return; 
+                      await repos.orderRepo.update(order.id, { customerAddress: customerAddressEdit }); 
+                      const o=await repos.orderRepo.get(order.id); 
+                      setOrder(o) 
+                    }} 
+                  />
+                  <a 
+                    className="rounded bg-gray-100 px-3 py-1" 
+                    target="_blank" 
+                    href={generateGoogleMapsLink(customerCityEdit, customerDistrictEdit, customerDetailAddressEdit)}
+                  >
+                    地圖
+                  </a>
+                </div>
+              </div>
           <div>會員編號：<span className="text-gray-700">{memberCode||'—'}</span></div>
         </div>
       </div>

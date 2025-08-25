@@ -98,6 +98,7 @@ function DesktopNav() {
   { to: '/schedule', label: '排班/派工', perm: 'technicians.schedule.view' },
   { to: '/customers', label: '客戶管理', perm: 'customers.manage' },
   { to: '/members', label: '會員管理', perm: 'customers.manage' },
+  { to: '/approvals', label: '待審核', perm: 'admin' },
   { to: '/report-center', label: '回報中心', perm: 'reports.view' },
   { to: '/payroll', label: '薪資/分潤', perm: 'payroll.view' },
   { to: '/documents', label: '文件管理', perm: 'documents.manage' },
@@ -121,7 +122,12 @@ function DesktopNav() {
           (a as any)?.reservationsRepo?.list?.() ?? [],
           (a as any)?.reportsRepo?.list?.() ?? [],
         ])
-        const approvals = 0
+        const [memberApps, techApps, staffApps] = await Promise.all([
+          (a as any)?.memberApplicationRepo?.listPending?.() ?? [],
+          (a as any)?.technicianApplicationRepo?.listPending?.() ?? [],
+          (a as any)?.staffApplicationRepo?.listPending?.() ?? [],
+        ])
+        const approvals = (memberApps?.length || 0) + (techApps?.length || 0) + (staffApps?.length || 0)
         const ordersNew = (orders||[]).filter((o:any)=> o.status==='confirmed' && !o.workStartedAt).length
         const needAssign = (orders||[]).filter((o:any)=> o.status==='confirmed' && (!Array.isArray(o.assignedTechnicians) || o.assignedTechnicians.length===0)).length
         const rsvPending = (reservations||[]).filter((r:any)=> r.status==='pending').length

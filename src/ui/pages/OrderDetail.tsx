@@ -109,6 +109,10 @@ export default function PageOrderDetail() {
   const hasCustomerSignature = Boolean(order?.signatures && (order as any).signatures?.customer)
   const hasSignature = hasTechSignature && hasCustomerSignature
   const requirePhotosOk = (order.photosBefore?.length||0) > 0 || (order.photosAfter?.length||0) > 0
+  // 簽名候選名單：優先用訂單內的 assignedTechnicians，否則回退使用從排程推導的 derivedAssigned
+  const signCandidates: string[] = Array.isArray(order.assignedTechnicians) && order.assignedTechnicians.length>0
+    ? order.assignedTechnicians
+    : (derivedAssigned || [])
   const canClose = (
     (order.status==='in_progress' || order.status==='unservice') &&
     timeLeftSec===0 &&
@@ -404,7 +408,7 @@ export default function PageOrderDetail() {
           <div className="rounded border p-2">
             <div className="text-xs text-gray-600">技師簽名</div>
             <div className="mt-1 flex items-center gap-2">
-              {Array.isArray(order.assignedTechnicians) && order.assignedTechnicians.length>0 ? (
+              {Array.isArray(signCandidates) && signCandidates.length>0 ? (
                 <>
                   <select
                     className="rounded-lg border px-2 py-1 text-sm"
@@ -413,7 +417,7 @@ export default function PageOrderDetail() {
                     disabled={hasTechSignature}
                   >
                     <option value="">請選擇</option>
-                    {order.assignedTechnicians.map((n: string, i: number) => (<option key={i} value={n}>{n}</option>))}
+                    {signCandidates.map((n: string, i: number) => (<option key={i} value={n}>{n}</option>))}
                   </select>
                   <div className={`h-16 w-32 cursor-pointer rounded border ${hasTechSignature?'bg-white':'bg-gray-50'}`} onClick={()=>{ if(hasTechSignature) return; if(!order.signatureTechnician){ alert('請先選擇簽名技師'); return } setSignAs('technician'); setSignOpen(true) }}>
                     {hasTechSignature && (order as any)?.signatures?.technician ? (

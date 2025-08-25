@@ -1,6 +1,5 @@
-  // 臨時：orders 先用本機，避免部署卡住
-  export { orderRepo } from '../local/orders'
-  // export { orderRepo } from './orders' // 先註解
+// 雲端：orders 接 Supabase
+export { orderRepo } from './orders'
 export { authRepo } from '../local/auth'
 // 產品改用雲端，提供購物車商品與安全庫存提醒
 export { productRepo } from './products'

@@ -41,7 +41,7 @@ class SupabaseTechnicianRepo implements TechnicianRepo {
   async list(): Promise<Technician[]> {
     const { data, error } = await supabase
       .from('technicians')
-      .select('*')
+      .select('id,code,name,short_name,email,phone,region,status,points,revenue_share_scheme,skills,updated_at')
       .order('updated_at', { ascending: false })
     if (error) throw error
     return (data || []).map(fromDb)

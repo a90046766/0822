@@ -40,6 +40,12 @@ export default function TechnicianSchedulePage() {
     ['pipe','管路施工'],
     ['washerDrum','滾筒洗衣機'],
   ]
+  // 月份結束日：e.g. '2025-09' -> '2025-09-30'
+  const monthEnd = (yymm: string) => {
+    const [y, m] = yymm.split('-').map(n => parseInt(n, 10))
+    const last = new Date(y, m, 0).getDate()
+    return `${yymm}-${String(last).padStart(2, '0')}`
+  }
   const [techLeaveOpen, setTechLeaveOpen] = useState(false)
   const [techLeaveDate, setTechLeaveDate] = useState(date)
   const [techLeaveSlot, setTechLeaveSlot] = useState<'am' | 'pm' | 'full'>('am')
@@ -76,7 +82,7 @@ export default function TechnicianSchedulePage() {
   useEffect(() => {
     const yymm = date.slice(0, 7)
     const startMonth = `${yymm}-01`
-    const endMonth = `${yymm}-31`
+    const endMonth = monthEnd(yymm)
     if(!repos) return
     Promise.all([
       repos.scheduleRepo.listWork({ start: startMonth, end: endMonth }),
@@ -181,6 +187,17 @@ export default function TechnicianSchedulePage() {
     const names = chosen.map(t => t.name)
     if(!repos) return
     await repos.orderRepo.update(orderId, { assignedTechnicians: names, preferredDate: date, preferredTimeStart: start, preferredTimeEnd: end })
+    // 雲端模式下，立即建立 technician_work 占用，確保月曆與衝突檢查即時生效
+    const RAW = String(import.meta.env.VITE_USE_SUPABASE || '').toLowerCase()
+    const CLOUD = RAW === '1' || RAW === 'true'
+    if (CLOUD) {
+      for (const t of chosen) {
+        const email = (t.email || '').toLowerCase()
+        if (email) {
+          try { await repos.scheduleRepo.saveWork({ technicianEmail: email, date, startTime: start, endTime: end, orderId }) } catch {}
+        }
+      }
+    }
     alert('已指派，返回訂單選擇簽名技師')
     navigate(`/orders/${orderId}`)
   }
@@ -209,7 +226,7 @@ export default function TechnicianSchedulePage() {
                 onMonthChange={async (year, month) => {
                   const yymm = `${year}-${String(month + 1).padStart(2, '0')}`
                   const startMonth = `${yymm}-01`
-                  const endMonth = `${yymm}-31`
+                  const endMonth = monthEnd(yymm)
                   if(!repos) return
                   const [ws, ls] = await Promise.all([
                     repos.scheduleRepo.listWork({ start: startMonth, end: endMonth }),
@@ -295,7 +312,7 @@ export default function TechnicianSchedulePage() {
                 onMonthChange={async (year, month) => {
                   const yymm = `${year}-${String(month + 1).padStart(2, '0')}`
                   const startMonth = `${yymm}-01`
-                  const endMonth = `${yymm}-31`
+                  const endMonth = monthEnd(yymm)
                   if(!repos) return
                   const [ws, ls] = await Promise.all([
                     repos.scheduleRepo.listWork({ start: startMonth, end: endMonth }),

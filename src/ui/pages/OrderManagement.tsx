@@ -196,7 +196,28 @@ export default function OrderManagementPage() {
             </div>
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={()=>setCreating(false)} className="rounded-lg bg-gray-100 px-3 py-1">取消</button>
-              <button onClick={async()=>{ if(!repos) return; const percent = await getActivePercent(); const items = form.serviceItems.map((it:any)=> percent>0 ? ({ ...it, unitPrice: Math.round(it.unitPrice * (1 - percent/100)) }) : it); let memberId: string|undefined = undefined; if ((form.memberCode||'').startsWith('MO')) { try { const a = repos; const m = await a.memberRepo.findByCode(form.memberCode); if (m) memberId = m.id } catch {} } await repos.orderRepo.create({ ...form, status:'draft', platform: form.platform||'日', memberId, serviceItems: items } as any); setCreating(false); setForm({ customerName:'', customerPhone:'', customerAddress:'', preferredDate:'', preferredTimeStart:'09:00', preferredTimeEnd:'12:00', platform:'日', referrerCode:'', memberCode:'', serviceItems:[{productId:'',name:'服務',quantity:1,unitPrice:1000}], assignedTechnicians:[], photos:[], signatures:{} }); load() }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">建立</button>
+              <button onClick={async()=>{
+                try {
+                  if(!repos) return
+                  // 清洗資料：避免空日期傳到 DB
+                  const clean = { ...form }
+                  if (!clean.preferredDate) delete (clean as any).preferredDate
+                  // 折扣處理
+                  const percent = await getActivePercent()
+                  const items = clean.serviceItems.map((it:any)=> percent>0 ? ({ ...it, unitPrice: Math.round(it.unitPrice * (1 - percent/100)) }) : it)
+                  // 會員綁定（可選）
+                  let memberId: string|undefined = undefined
+                  if ((clean as any).memberCode && String((clean as any).memberCode).toUpperCase().startsWith('MO')) {
+                    try { const m = await repos.memberRepo.findByCode(String((clean as any).memberCode).toUpperCase()); if (m) memberId = m.id } catch {}
+                  }
+                  await repos.orderRepo.create({ ...clean, status:'draft', platform: clean.platform||'日', memberId, serviceItems: items } as any)
+                  setCreating(false)
+                  setForm({ customerName:'', customerPhone:'', customerAddress:'', preferredDate:'', preferredTimeStart:'09:00', preferredTimeEnd:'12:00', platform:'日', referrerCode:'', memberCode:'', serviceItems:[{productId:'',name:'服務',quantity:1,unitPrice:1000}], assignedTechnicians:[], photos:[], signatures:{} })
+                  load()
+                } catch (e:any) {
+                  alert('建立失敗：' + (e?.message || '未知錯誤'))
+                }
+              }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">建立</button>
             </div>
           </div>
         </div>

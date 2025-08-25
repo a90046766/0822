@@ -9,6 +9,8 @@ create table if not exists products (
   group_price numeric,
   group_min_qty int default 0,
   description text,
+  content text,
+  region text,
   image_urls jsonb default '[]'::jsonb,
   safe_stock int,
   updated_at timestamptz default now()
@@ -86,6 +88,7 @@ create table if not exists technicians (
 -- Orders
 create table if not exists orders (
   id uuid primary key default gen_random_uuid(),
+  order_number text unique,
   customer_name text,
   customer_phone text,
   customer_address text,
@@ -678,6 +681,30 @@ create policy notifications_read_insert on notifications_read for insert with ch
 create policy notifications_read_update on notifications_read for update using (true) with check (true);
 create policy notifications_read_delete on notifications_read for delete using (true);
 create unique index if not exists ux_notifications_read_unique on notifications_read (notification_id, lower(user_email));
+
+-- 自動生成訂單編號的函數
+create or replace function public.generate_order_number()
+returns text
+language plpgsql
+security definer
+as $$
+declare
+  next_num int;
+  order_num text;
+begin
+  -- 獲取當前最大編號
+  select coalesce(max(cast(substring(order_number from 2) as int)), 0) + 1
+  into next_num
+  from orders
+  where order_number ~ '^O[0-9]+$';
+  
+  -- 格式化為 O + 6位數字
+  order_num := 'O' || lpad(next_num::text, 6, '0');
+  
+  return order_num;
+end $$;
+
+grant execute on function public.generate_order_number() to anon, authenticated;
 
 -- Promotion products mapping
 create table if not exists promotion_products (

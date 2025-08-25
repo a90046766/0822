@@ -61,7 +61,8 @@ function fromDbRow(row: any): Order {
   const r = row || {}
   const pick = (a: string, b: string) => (r[a] ?? r[b])
   return {
-    id: r.id,
+    // 使用 order_number 作為顯示 ID，如果沒有則使用 UUID
+    id: r.order_number || r.id,
     memberId: pick('memberId', 'member_id'),
     customerName: pick('customerName', 'customer_name') || '',
     customerPhone: pick('customerPhone', 'customer_phone') || '',
@@ -94,7 +95,7 @@ function fromDbRow(row: any): Order {
 }
 
 const ORDERS_COLUMNS =
-  'id,customer_name,customer_phone,customer_address,preferred_date,preferred_time_start,preferred_time_end,platform,referrer_code,member_id,service_items,assigned_technicians,signature_technician,signatures,photos,photos_before,photos_after,payment_method,payment_status,points_used,points_deduct_amount,category,channel,used_item_id,work_started_at,work_completed_at,service_finished_at,canceled_reason,status,created_at,updated_at'
+  'id,order_number,customer_name,customer_phone,customer_address,preferred_date,preferred_time_start,preferred_time_end,platform,referrer_code,member_id,service_items,assigned_technicians,signature_technician,signatures,photos,photos_before,photos_after,payment_method,payment_status,points_used,points_deduct_amount,category,channel,used_item_id,work_started_at,work_completed_at,service_finished_at,canceled_reason,status,created_at,updated_at'
 
 class SupabaseOrderRepo implements OrderRepo {
   async list(): Promise<Order[]> {
@@ -118,17 +119,21 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async get(id: string): Promise<Order | null> {
     try {
-      // 檢查 ID 是否為有效的 UUID
-      if (!isValidUUID(id)) {
-        console.warn(`無效的 UUID 格式: ${id}`)
-        return null
-      }
-
-      const { data, error } = await supabase
+      let query = supabase
         .from('orders')
         .select(ORDERS_COLUMNS)
-        .eq('id', id)
-        .single()
+      
+      // 檢查是否為訂單編號格式（O開頭）
+      if (id.startsWith('O')) {
+        query = query.eq('order_number', id)
+      } else if (isValidUUID(id)) {
+        query = query.eq('id', id)
+      } else {
+        console.warn(`無效的訂單 ID 格式: ${id}`)
+        return null
+      }
+      
+      const { data, error } = await query.single()
       
       if (error) {
         if (error.code === 'PGRST116') {
@@ -152,6 +157,17 @@ class SupabaseOrderRepo implements OrderRepo {
       // 為新訂單生成 UUID
       row.id = generateUUID()
       
+      // 生成訂單編號
+      const { data: orderNumberData, error: orderNumberError } = await supabase
+        .rpc('generate_order_number')
+      
+      if (orderNumberError) {
+        console.error('生成訂單編號失敗:', orderNumberError)
+        throw new Error('生成訂單編號失敗')
+      }
+      
+      row.order_number = orderNumberData
+      
       const { data, error } = await supabase
         .from('orders')
         .insert(row)
@@ -172,17 +188,21 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async update(id: string, patch: Partial<Order>): Promise<void> {
     try {
-      // 檢查 ID 是否為有效的 UUID
-      if (!isValidUUID(id)) {
-        console.error(`無效的 UUID 格式: ${id}`)
+      let query = supabase
+        .from('orders')
+        .update(toDbRow(patch))
+      
+      // 檢查是否為訂單編號格式（O開頭）
+      if (id.startsWith('O')) {
+        query = query.eq('order_number', id)
+      } else if (isValidUUID(id)) {
+        query = query.eq('id', id)
+      } else {
+        console.error(`無效的訂單 ID 格式: ${id}`)
         throw new Error('無效的訂單 ID 格式')
       }
-
-      const row = toDbRow(patch)
-      const { error } = await supabase
-        .from('orders')
-        .update(row)
-        .eq('id', id)
+      
+      const { error } = await query
       
       if (error) {
         console.error('Supabase order update error:', error)
@@ -196,16 +216,21 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async delete(id: string, reason: string): Promise<void> {
     try {
-      // 檢查 ID 是否為有效的 UUID
-      if (!isValidUUID(id)) {
-        console.error(`無效的 UUID 格式: ${id}`)
-        throw new Error('無效的訂單 ID 格式')
-      }
-
-      const { error } = await supabase
+      let query = supabase
         .from('orders')
         .delete()
-        .eq('id', id)
+      
+      // 檢查是否為訂單編號格式（O開頭）
+      if (id.startsWith('O')) {
+        query = query.eq('order_number', id)
+      } else if (isValidUUID(id)) {
+        query = query.eq('id', id)
+      } else {
+        console.error(`無效的訂單 ID 格式: ${id}`)
+        throw new Error('無效的訂單 ID 格式')
+      }
+      
+      const { error } = await query
       
       if (error) {
         console.error('Supabase order delete error:', error)
@@ -219,20 +244,25 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async cancel(id: string, reason: string): Promise<void> {
     try {
-      // 檢查 ID 是否為有效的 UUID
-      if (!isValidUUID(id)) {
-        console.error(`無效的 UUID 格式: ${id}`)
-        throw new Error('無效的訂單 ID 格式')
-      }
-
-      const { error } = await supabase
+      let query = supabase
         .from('orders')
         .update({ 
           status: 'canceled', 
           canceled_reason: reason,
           updated_at: new Date().toISOString()
         })
-        .eq('id', id)
+      
+      // 檢查是否為訂單編號格式（O開頭）
+      if (id.startsWith('O')) {
+        query = query.eq('order_number', id)
+      } else if (isValidUUID(id)) {
+        query = query.eq('id', id)
+      } else {
+        console.error(`無效的訂單 ID 格式: ${id}`)
+        throw new Error('無效的訂單 ID 格式')
+      }
+      
+      const { error } = await query
       
       if (error) {
         console.error('Supabase order cancel error:', error)
@@ -246,19 +276,24 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async confirm(id: string): Promise<void> {
     try {
-      // 檢查 ID 是否為有效的 UUID
-      if (!isValidUUID(id)) {
-        console.error(`無效的 UUID 格式: ${id}`)
-        throw new Error('無效的訂單 ID 格式')
-      }
-
-      const { error } = await supabase
+      let query = supabase
         .from('orders')
         .update({ 
           status: 'confirmed',
           updated_at: new Date().toISOString()
         })
-        .eq('id', id)
+      
+      // 檢查是否為訂單編號格式（O開頭）
+      if (id.startsWith('O')) {
+        query = query.eq('order_number', id)
+      } else if (isValidUUID(id)) {
+        query = query.eq('id', id)
+      } else {
+        console.error(`無效的訂單 ID 格式: ${id}`)
+        throw new Error('無效的訂單 ID 格式')
+      }
+      
+      const { error } = await query
       
       if (error) {
         console.error('Supabase order confirm error:', error)
@@ -272,20 +307,25 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async startWork(id: string, at: string): Promise<void> {
     try {
-      // 檢查 ID 是否為有效的 UUID
-      if (!isValidUUID(id)) {
-        console.error(`無效的 UUID 格式: ${id}`)
-        throw new Error('無效的訂單 ID 格式')
-      }
-
-      const { error } = await supabase
+      let query = supabase
         .from('orders')
         .update({ 
           work_started_at: at,
           status: 'in_progress',
           updated_at: new Date().toISOString()
         })
-        .eq('id', id)
+      
+      // 檢查是否為訂單編號格式（O開頭）
+      if (id.startsWith('O')) {
+        query = query.eq('order_number', id)
+      } else if (isValidUUID(id)) {
+        query = query.eq('id', id)
+      } else {
+        console.error(`無效的訂單 ID 格式: ${id}`)
+        throw new Error('無效的訂單 ID 格式')
+      }
+      
+      const { error } = await query
       
       if (error) {
         console.error('Supabase order startWork error:', error)
@@ -299,20 +339,25 @@ class SupabaseOrderRepo implements OrderRepo {
 
   async finishWork(id: string, at: string): Promise<void> {
     try {
-      // 檢查 ID 是否為有效的 UUID
-      if (!isValidUUID(id)) {
-        console.error(`無效的 UUID 格式: ${id}`)
-        throw new Error('無效的訂單 ID 格式')
-      }
-
-      const { error } = await supabase
+      let query = supabase
         .from('orders')
         .update({ 
           work_completed_at: at,
           status: 'completed',
           updated_at: new Date().toISOString()
         })
-        .eq('id', id)
+      
+      // 檢查是否為訂單編號格式（O開頭）
+      if (id.startsWith('O')) {
+        query = query.eq('order_number', id)
+      } else if (isValidUUID(id)) {
+        query = query.eq('id', id)
+      } else {
+        console.error(`無效的訂單 ID 格式: ${id}`)
+        throw new Error('無效的訂單 ID 格式')
+      }
+      
+      const { error } = await query
       
       if (error) {
         console.error('Supabase order finishWork error:', error)

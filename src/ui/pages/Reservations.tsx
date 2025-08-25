@@ -1,98 +1,176 @@
 import { useEffect, useState } from 'react'
 import { loadAdapters } from '../../adapters'
-import { getActivePercent } from '../../utils/promotions'
+import { Link } from 'react-router-dom'
+import { authRepo } from '../../adapters/local/auth'
+import { can } from '../../utils/permissions'
 
 export default function ReservationsPage() {
   const [rows, setRows] = useState<any[]>([])
   const [repos, setRepos] = useState<any>(null)
-  const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState<any>({ customerName:'', customerPhone:'', items:[{ productId:'', name:'服務', unitPrice:1000, quantity:1 }] })
-  const [products, setProducts] = useState<any[]>([])
-  useEffect(()=>{ (async()=>{ const a = await loadAdapters(); setRepos(a) })() },[])
-  useEffect(()=>{ (async()=>{ if(!repos) return; setProducts(await repos.productRepo.list()) })() },[repos])
-  const load = async () => { if(!repos) return; setRows(await repos.reservationsRepo.list()) }
-  useEffect(()=>{ if(repos) load() },[repos])
+  const user = authRepo.getCurrentUser()
+  const [q, setQ] = useState('')
+  const [statusTab, setStatusTab] = useState<'all'|'pending'|'confirmed'|'canceled'>('all')
+  
+  const load = async () => { 
+    if (!repos) return
+    try {
+      const reservations = await (repos as any).reservationsRepo?.list?.() || []
+      setRows(reservations)
+    } catch (error) {
+      console.error('載入預約訂單失敗:', error)
+      setRows([])
+    }
+  }
+  
+  useEffect(() => { (async()=>{ const a = await loadAdapters(); setRepos(a) })() }, [])
+  useEffect(() => { if (repos) load() }, [repos])
+
+  const filtered = rows.filter(r => {
+    const hit = !q || r.id.includes(q) || (r.customerName||'').includes(q) || (r.customerPhone||'').includes(q)
+    const byStatus = statusTab === 'all' || r.status === statusTab
+    return hit && byStatus
+  })
+
+  const counts = {
+    all: rows.length,
+    pending: rows.filter(r => r.status === 'pending').length,
+    confirmed: rows.filter(r => r.status === 'confirmed').length,
+    canceled: rows.filter(r => r.status === 'canceled').length,
+  }
+
+  const confirmReservation = async (reservation: any) => {
+    if (!repos || !can(user, 'orders.create')) return
+    
+    try {
+      // 將預約訂單轉換為正式訂單
+      const orderData = {
+        id: '',
+        customerName: reservation.customerName,
+        customerPhone: reservation.customerPhone,
+        customerAddress: '',
+        preferredDate: '',
+        preferredTimeStart: '09:00',
+        preferredTimeEnd: '12:00',
+        platform: 'cart',
+        referrerCode: '',
+        memberId: null,
+        serviceItems: reservation.items || [],
+        assignedTechnicians: [],
+        signatures: {},
+        photos: [],
+        photosBefore: [],
+        photosAfter: [],
+        paymentMethod: '',
+        paymentStatus: 'pending',
+        pointsUsed: 0,
+        pointsDeductAmount: 0,
+        category: 'service',
+        channel: 'cart',
+        status: 'confirmed',
+        workStartedAt: null,
+        workCompletedAt: null,
+        serviceFinishedAt: null,
+        canceledReason: '',
+      }
+
+      await repos.orderRepo.create(orderData)
+      
+      // 更新預約訂單狀態為已確認
+      await (repos as any).reservationsRepo.update(reservation.id, { status: 'confirmed' })
+      
+      alert('預約訂單已轉換為正式訂單')
+      load()
+    } catch (error) {
+      console.error('轉換預約訂單失敗:', error)
+      alert('轉換失敗：' + (error as any)?.message || '未知錯誤')
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="text-lg font-semibold">預約訂單</div>
-        <button onClick={()=>setCreating(true)} className="rounded-lg bg-brand-500 px-3 py-1 text-white">新增預約</button>
+        <div className="flex items-center gap-2">
+          <input placeholder="搜尋客戶/電話" className="rounded border px-2 py-1 text-sm" value={q} onChange={e=>setQ(e.target.value)} />
+        </div>
       </div>
-      <div className="rounded-2xl bg-white p-2 shadow-card">
-        {rows.map(r => (
-          <div key={r.id} className="flex items-center justify-between border-b p-3 text-sm">
-            <div>
-              <div className="font-semibold">{r.customerName}</div>
-              <div className="text-xs text-gray-500">{(r.items||[]).length} 項｜狀態 {r.status}</div>
-              <ActivePromoHint />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={async()=>{
-                const { confirmTwice } = await import('../kit')
-                if(!(await confirmTwice('取消此預約？','取消後狀態將改為 canceled，仍要取消？'))) return
-                if(!repos) return; await repos.reservationsRepo.update(r.id, { status: 'canceled' })
-                load()
-              }} className="rounded-lg bg-rose-500 px-3 py-1 text-white">取消</button>
-              <button onClick={async()=>{
-                const { confirmTwice } = await import('../kit')
-                if(!(await confirmTwice('轉為正式訂單？','轉單後請至訂單管理完成指派與確認，仍要轉單？'))) return
-                const percent = await getActivePercent()
-                if(!repos) return; await repos.orderRepo.create({
-                  customerName: r.customerName,
-                  customerPhone: r.customerPhone,
-                  customerAddress: '—',
-                  preferredDate: '', preferredTimeStart:'09:00', preferredTimeEnd:'12:00',
-                  serviceItems: (r.items||[]).map((it:any)=>({
-                    productId: it.productId||'',
-                    name:it.name,
-                    quantity:it.quantity,
-                    unitPrice: percent>0 ? Math.round(it.unitPrice * (1 - percent/100)) : it.unitPrice
-                  })),
-                  assignedTechnicians: [], platform:'日', photos:[], signatures:{}, status:'draft'
-                } as any)
-                alert('已轉單，請至訂單管理查看')
-              }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">轉單</button>
+
+      {/* 狀態統計 */}
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        {([
+          ['all','全部', counts.all],
+          ['pending','待確認', counts.pending],
+          ['confirmed','已確認', counts.confirmed],
+          ['canceled','已取消', counts.canceled],
+        ] as any[]).map(([key,label,num])=> (
+          <button key={key} onClick={()=>setStatusTab(key)} className={`rounded-2xl border p-4 text-left shadow-card ${statusTab===key? 'ring-2 ring-brand-400' : ''}`}>
+            <div className="text-xs text-gray-500">{label}</div>
+            <div className="mt-1 text-2xl font-extrabold tabular-nums">{num}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* 預約訂單列表 */}
+      <div className="space-y-3">
+        {filtered.map(r => (
+          <div key={r.id} className={`rounded-xl border p-4 shadow-card ${r.status === 'pending' ? 'border-amber-400 bg-amber-50' : ''}`}>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="font-semibold">{r.customerName}</div>
+                  <div className="text-sm text-gray-500">{r.customerPhone}</div>
+                  <span className={`rounded px-2 py-0.5 text-xs ${
+                    r.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                    r.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {r.status === 'pending' ? '待確認' : 
+                     r.status === 'confirmed' ? '已確認' : '已取消'}
+                  </span>
+                </div>
+                
+                {/* 預約項目 */}
+                <div className="mt-2 space-y-1">
+                  {(r.items || []).map((item: any, idx: number) => (
+                    <div key={idx} className="text-sm text-gray-600">
+                      • {item.name} x{item.quantity} - ${item.unitPrice}
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-2 text-xs text-gray-500">
+                  建立時間：{new Date(r.createdAt).toLocaleString('zh-TW')}
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {r.status === 'pending' && can(user, 'orders.create') && (
+                  <button 
+                    onClick={() => confirmReservation(r)}
+                    className="rounded-lg bg-brand-500 px-3 py-1 text-white text-sm"
+                  >
+                    確認轉換
+                  </button>
+                )}
+                <Link 
+                  to={`/orders/${r.id}`} 
+                  className="rounded-lg bg-gray-900 px-3 py-1 text-white text-sm"
+                >
+                  查看詳情
+                </Link>
+              </div>
             </div>
           </div>
         ))}
-        {rows.length===0 && <div className="p-4 text-center text-gray-500">沒有預約單</div>}
-      </div>
-      {creating && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-card">
-            <div className="mb-2 text-lg font-semibold">新增預約</div>
-            <div className="space-y-2 text-sm">
-              <input className="w-full rounded border px-2 py-1" placeholder="姓名" value={form.customerName} onChange={e=>setForm({...form,customerName:e.target.value})} />
-              <input className="w-full rounded border px-2 py-1" placeholder="手機" value={form.customerPhone} onChange={e=>setForm({...form,customerPhone:e.target.value})} />
-              <div className="grid grid-cols-3 gap-2">
-                <select className="rounded border px-2 py-1" value={form.items[0].productId||''} onChange={e=>{
-                  const val=e.target.value; const it=form.items[0]; if(!val){ setForm({...form,items:[{...it, productId:'', name: it.name}]}); return }
-                  const p = products.find((x:any)=>x.id===val); setForm({...form,items:[{...it, productId: val, name: p?.name || it.name, unitPrice: p?.unitPrice || it.unitPrice}]})
-                }}>
-                  <option value="">自訂</option>
-                  {products.map((p:any)=>(<option key={p.id} value={p.id}>{p.name}（{p.unitPrice}）</option>))}
-                </select>
-                <input className="col-span-2 rounded border px-2 py-1" placeholder="項目" value={form.items[0].name} onChange={e=>setForm({...form,items:[{...form.items[0],name:e.target.value}]})} />
-                <input type="number" className="w-24 rounded border px-2 py-1" placeholder="單價" value={form.items[0].unitPrice} onChange={e=>setForm({...form,items:[{...form.items[0],unitPrice:Number(e.target.value)}]})} />
-                <input type="number" className="w-24 rounded border px-2 py-1" placeholder="數量" value={form.items[0].quantity} onChange={e=>setForm({...form,items:[{...form.items[0],quantity:Number(e.target.value)}]})} />
-              </div>
-            </div>
-            <div className="mt-3 flex justify-end gap-2">
-              <button onClick={()=>setCreating(false)} className="rounded-lg bg-gray-100 px-3 py-1">取消</button>
-              <button onClick={async()=>{ if(!repos) return; await repos.reservationsRepo.create(form); setCreating(false); setForm({ customerName:'', customerPhone:'', items:[{ name:'服務', unitPrice:1000, quantity:1 }] }); load() }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">建立</button>
-            </div>
+        
+        {filtered.length === 0 && (
+          <div className="text-center text-gray-500 py-8">
+            {rows.length === 0 ? '尚無預約訂單' : '沒有符合條件的預約訂單'}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
-}
-
-function ActivePromoHint() {
-  const [p, setP] = useState<number>(0)
-  useEffect(()=>{ getActivePercent().then(setP) },[])
-  if (p<=0) return null
-  return <div className="text-[11px] text-amber-600">目前活動折扣 {p}%</div>
 }
 
 

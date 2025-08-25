@@ -30,6 +30,8 @@ function fromDbRow(row: any): Product {
     groupPrice: r.group_price ?? r.groupPrice,
     groupMinQty: r.group_min_qty ?? r.groupMinQty ?? 0,
     description: r.description || '',
+    content: r.content || '',
+    region: r.region || '',
     imageUrls: r.image_urls ?? r.imageUrls ?? [],
     safeStock: r.safe_stock ?? r.safeStock,
     // @ts-ignore

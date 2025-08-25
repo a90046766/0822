@@ -1,9 +1,26 @@
-insert into products (id,name,unit_price,group_price,group_min_qty,description,image_urls,safe_stock)
-values
- ('P-AC-CLEAN','分離式冷氣清洗',1800,1600,2,'室內外機標準清洗','[]',20),
- ('P-WASH-CLEAN','洗衣機清洗（滾筒）',1999,1799,2,'滾筒式清洗','[]',20),
- ('P-HOOD-T','倒T型抽油煙機清洗',2200,2000,2,'倒T型清洗','[]',20),
- ('P-HOOD-TRAD','傳統雙渦輪抽油煙機清洗',1800,1600,2,'傳統型清洗','[]',20)
-on conflict (id) do nothing;
+-- 初始化預設產品分類
+INSERT INTO product_categories (id, name, sort_order, active, updated_at)
+VALUES 
+  (gen_random_uuid(), '專業清洗服務', 1, true, now()),
+  (gen_random_uuid(), '家電服務', 2, true, now()),
+  (gen_random_uuid(), '二手家電服務', 3, true, now()),
+  (gen_random_uuid(), '居家清潔/消毒服務', 4, true, now())
+ON CONFLICT (name) DO NOTHING;
+
+-- 為現有訂單生成訂單編號
+DO $$
+DECLARE
+  order_record RECORD;
+  counter INTEGER := 1;
+BEGIN
+  FOR order_record IN 
+    SELECT id FROM orders WHERE order_number IS NULL ORDER BY created_at
+  LOOP
+    UPDATE orders 
+    SET order_number = 'O' || lpad(counter::text, 6, '0')
+    WHERE id = order_record.id;
+    counter := counter + 1;
+  END LOOP;
+END $$;
 
 

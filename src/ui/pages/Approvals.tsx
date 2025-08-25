@@ -127,7 +127,7 @@ export default function ApprovalsPage() {
           <div className="mt-4 text-center text-gray-500">目前無待審核申請</div>
         ) : (
           <div className="mt-4 space-y-4">
-            {techApps.map((app) => (
+            {techApps.map((app: TechnicianApplication) => (
               <div key={app.id} className="rounded-xl border p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

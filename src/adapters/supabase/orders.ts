@@ -157,6 +157,13 @@ class SupabaseOrderRepo implements OrderRepo {
 
     try {
       if (one) {
-        const sum = (one.serviceItems || []).reduce((s, it: any) => s + (it.unitPrice || 0) * (it.quantity || 0), 0)
-        const net = Math.max(0, sum - (one.pointsDeductAmount || 0))
-        if (one.member
+        // 後置處理（暫不執行副作用，避免部署風險）
+        // 可在此呼叫 RPC 做積分/報表彙總
+      }
+    } catch {
+      // 忽略非關鍵後置處理錯誤
+    }
+  }
+}
+
+export const orderRepo: OrderRepo = new SupabaseOrderRepo()

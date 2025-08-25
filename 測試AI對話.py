@@ -1,132 +1,110 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Sophia AI 對話功能測試
-測試自然語言理解和回應功能
+測試 Sophia AI 對話功能
 """
 
-import sys
-from sophia_ai_chat import SophiaAIChat
+import tkinter as tk
+from tkinter import messagebox
 
-def test_ai_understanding():
-    """測試AI理解能力"""
-    print("🧠 測試 Sophia AI 理解能力")
-    print("=" * 50)
+def test_ai_chat():
+    """測試 AI 對話功能"""
+    print("🧪 開始測試 AI 對話功能...")
     
-    # 創建AI助手
-    ai = SophiaAIChat()
+    # 測試 1: 檢查模組載入
+    try:
+        from sophia_ai_chat import create_ai_chat_window, SophiaAIChat
+        print("✅ AI 對話模組載入成功")
+    except Exception as e:
+        print(f"❌ AI 對話模組載入失敗: {e}")
+        return False
     
-    # 測試用例
-    test_cases = [
-        "你好",
-        "幫我開啟Excel檔案",
-        "分析這個薪資表的各部門平均薪資",
-        "製作業績趨勢圖表",
-        "清理重複資料並生成報表",
-        "比較本月與上月的銷售數據",
-        "我的檔案打不開怎麼辦",
-        "如何製作圓餅圖",
-        "預測未來三個月的銷售趨勢",
-        "幫我處理這個複雜的數據分析工作"
+    # 測試 2: 檢查 SophiaAIChat 類別
+    try:
+        ai_chat = SophiaAIChat()
+        print("✅ SophiaAIChat 實例化成功")
+    except Exception as e:
+        print(f"❌ SophiaAIChat 實例化失敗: {e}")
+        return False
+    
+    # 測試 3: 測試意圖理解
+    test_inputs = [
+        "幫我打開七月薪資表",
+        "分析這個數據",
+        "製作圖表",
+        "清理數據"
     ]
     
-    print("🗣️ 測試對話樣例：\n")
-    
-    for i, test_input in enumerate(test_cases, 1):
-        print(f"【測試 {i}】")
-        print(f"👤 用戶：{test_input}")
-        
-        # 理解用戶意圖
-        understanding = ai.understand_intent(test_input)
-        print(f"🧠 理解：意圖={understanding['intent']}, 信心度={understanding['confidence']:.2f}")
-        
-        if understanding['entities']:
-            print(f"🔍 識別實體：{understanding['entities']}")
-        
-        # 生成回應
-        response = ai.generate_response(test_input)
-        print(f"🤖 Sophia：{response[:100]}...")
-        
-        print("-" * 60)
-        print()
-    
-    print("✅ AI理解測試完成！")
-
-def interactive_chat():
-    """互動式聊天測試"""
-    print("\n💬 Sophia AI 互動式聊天測試")
-    print("=" * 50)
-    print("輸入 'exit' 或 'quit' 結束對話\n")
-    
-    ai = SophiaAIChat()
-    
-    print("🤖 Sophia：您好！我是 Sophia，您的專業數據分析助手。")
-    print("我可以理解自然語言並幫您處理複雜的工作需求。")
-    print("請告訴我您需要什麼幫助？\n")
-    
-    conversation_count = 0
-    
-    while True:
+    for test_input in test_inputs:
         try:
-            # 獲取用戶輸入
-            user_input = input("👤 您：").strip()
-            
-            if user_input.lower() in ['exit', 'quit', '退出', '結束']:
-                print("\n🤖 Sophia：感謝您的使用！再見！👋")
-                break
-            
-            if not user_input:
-                continue
-            
-            # 生成AI回應
-            response = ai.generate_response(user_input)
-            print(f"\n🤖 Sophia：\n{response}\n")
-            
-            conversation_count += 1
-            
-            # 每5次對話顯示一次統計
-            if conversation_count % 5 == 0:
-                print(f"📊 對話統計：已進行 {conversation_count} 次互動")
-                print("💡 提示：您可以問更複雜的問題，例如：")
-                print("  '分析薪資數據並找出異常值'")
-                print("  '製作部門業績比較圖表'")
-                print("  '預測下季度的銷售趨勢'\n")
-        
-        except KeyboardInterrupt:
-            print("\n\n🤖 Sophia：對話被中斷。再見！")
-            break
+            understanding = ai_chat.understand_intent(test_input)
+            actions = ai_chat.plan_actions(test_input)
+            print(f"✅ 測試輸入: '{test_input}'")
+            print(f"   意圖: {understanding['intent']}")
+            print(f"   動作: {len(actions)} 個")
         except Exception as e:
-            print(f"\n❌ 錯誤：{e}")
-            print("請再試一次\n")
+            print(f"❌ 測試輸入 '{test_input}' 失敗: {e}")
+            return False
+    
+    # 測試 4: 測試回應生成
+    try:
+        response = ai_chat.generate_response("你好")
+        print(f"✅ 回應生成測試: {response[:50]}...")
+    except Exception as e:
+        print(f"❌ 回應生成失敗: {e}")
+        return False
+    
+    print("🎉 所有測試通過！AI 對話功能正常")
+    return True
 
-def main():
-    """主程式"""
-    print("🚀 Sophia AI 對話功能測試程式")
-    print("=" * 60)
+def test_desktop_integration():
+    """測試桌面應用整合"""
+    print("\n🧪 測試桌面應用整合...")
     
     try:
-        while True:
-            print("\n請選擇測試模式：")
-            print("1. 🧠 理解能力測試")
-            print("2. 💬 互動式聊天")
-            print("3. 🚪 退出程式")
-            
-            choice = input("\n請輸入選項 (1-3)：").strip()
-            
-            if choice == '1':
-                test_ai_understanding()
-            elif choice == '2':
-                interactive_chat()
-            elif choice == '3':
-                print("👋 感謝使用！")
-                break
-            else:
-                print("❌ 無效選項，請重新選擇")
-    
-    except KeyboardInterrupt:
-        print("\n\n👋 程式被中斷，再見！")
+        from sophia_desktop import SophiaDesktop
+        print("✅ SophiaDesktop 模組載入成功")
+        
+        # 創建一個簡單的測試實例
+        root = tk.Tk()
+        root.withdraw()  # 隱藏主視窗
+        
+        app = SophiaDesktop()
+        print("✅ SophiaDesktop 實例化成功")
+        
+        # 測試 AI 對話按鈕是否存在
+        if hasattr(app, 'open_ai_chat'):
+            print("✅ open_ai_chat 方法存在")
+        else:
+            print("❌ open_ai_chat 方法不存在")
+            return False
+        
+        root.destroy()
+        return True
+        
     except Exception as e:
-        print(f"\n❌ 程式錯誤：{e}")
+        print(f"❌ 桌面應用整合測試失敗: {e}")
+        return False
 
 if __name__ == "__main__":
-    main()
+    print("🚀 開始測試 Sophia AI 對話系統...")
+    
+    # 執行測試
+    ai_test_passed = test_ai_chat()
+    desktop_test_passed = test_desktop_integration()
+    
+    print("\n📊 測試結果:")
+    print(f"AI 對話功能: {'✅ 通過' if ai_test_passed else '❌ 失敗'}")
+    print(f"桌面整合: {'✅ 通過' if desktop_test_passed else '❌ 失敗'}")
+    
+    if ai_test_passed and desktop_test_passed:
+        print("\n🎉 所有測試通過！系統應該可以正常使用")
+        print("\n💡 使用說明:")
+        print("1. 執行 python sophia_desktop.py")
+        print("2. 點擊工具列的「💬 AI對話」按鈕")
+        print("3. 在對話視窗中輸入需求，例如：")
+        print("   - '幫我打開七月薪資表'")
+        print("   - '分析這個數據並製作圖表'")
+        print("   - '清理數據並匯出結果'")
+    else:
+        print("\n⚠️ 部分測試失敗，請檢查錯誤訊息")

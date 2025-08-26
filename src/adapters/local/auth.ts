@@ -143,7 +143,7 @@ class LocalAuthRepo implements AuthRepo {
   // 取得所有員工列表
   async getStaffList(): Promise<User[]> {
     const allUsers = this.getAllUsers()
-    return allUsers.map(user => ({
+    return allUsers.map((user: any) => ({
       id: `USER-${user.role.toUpperCase()}-${user.email}`,
       email: user.email,
       name: user.name,
@@ -161,7 +161,7 @@ class LocalAuthRepo implements AuthRepo {
     status: 'active' | 'inactive'
   }>): Promise<void> {
     const customUsers = this.getCustomUsers()
-    const userIndex = customUsers.findIndex(u => `USER-${u.role.toUpperCase()}-${u.email}` === staffId)
+    const userIndex = customUsers.findIndex((u: any) => `USER-${u.role.toUpperCase()}-${u.email}` === staffId)
     
     if (userIndex === -1) {
       throw new Error('找不到要更新的員工')
@@ -181,7 +181,7 @@ class LocalAuthRepo implements AuthRepo {
   // 刪除員工帳號
   async deleteStaff(staffId: string): Promise<void> {
     const customUsers = this.getCustomUsers()
-    const userIndex = customUsers.findIndex(u => `USER-${u.role.toUpperCase()}-${u.email}` === staffId)
+    const userIndex = customUsers.findIndex((u: any) => `USER-${u.role.toUpperCase()}-${u.email}` === staffId)
     
     if (userIndex === -1) {
       throw new Error('找不到要刪除的員工')

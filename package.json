@@ -15,7 +15,8 @@
     "safe-update:update-data": "node scripts/production-safe-updates.js update-data",
     "safe-update:add-categories": "node scripts/production-safe-updates.js add-categories",
     "safe-update:add-functions": "node scripts/production-safe-updates.js add-functions",
-    "safe-update:enhance-documents": "node scripts/production-safe-updates.js enhance-documents"
+    "safe-update:enhance-documents": "node scripts/production-safe-updates.js enhance-documents",
+    "check": "node scripts/check-system.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.55.0",

@@ -142,7 +142,7 @@ class SupabaseAuthRepo implements AuthRepo {
     const { data, error } = await supabase
       .from('staff')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
 
     if (error) {
       throw new Error(error.message || '取得員工列表失敗')

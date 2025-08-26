@@ -7,9 +7,13 @@ export { scheduleRepo } from './schedule'
 export { notificationRepo } from './notifications'
 export { reportsRepo } from './reports'
 export { productRepo } from './products'
+export { inventoryRepo } from './inventory'
+export { customerRepo } from './customers'
+export { documentsRepo } from './documents'
+export { modelsRepo } from './models'
+export { promotionsRepo } from './promotions'
 export { reservationsRepo } from './reservations'
 export { payrollRepo } from './payroll'
 export { settingsRepo } from './settings'
-// 其他 local adapters 依需求補充
 
 

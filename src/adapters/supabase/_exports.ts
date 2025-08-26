@@ -15,7 +15,5 @@ export { scheduleRepo } from './schedule'
 export { staffRepo, staffApplicationRepo } from './staff'
 export { settingsRepo } from './settings'
 export { payrollRepo } from './payroll'
-export { usedItemsRepo } from './used_items'
-export { productMeta } from './product_meta'
 
 

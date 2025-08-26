@@ -102,12 +102,12 @@ class LocalAuthRepo implements AuthRepo {
     localStorage.removeItem(this.rememberKey)
   }
 
-  // 新增客服帳號
+  // 新增客服/業務帳號
   async createStaffAccount(staffData: {
     name: string
     email: string
     phone: string
-    role: 'support' | 'admin' | 'technician'
+    role: 'support' | 'sales' // 只允許客服和業務
     password: string
   }): Promise<User> {
     const customUsers = this.getCustomUsers()
@@ -157,7 +157,7 @@ class LocalAuthRepo implements AuthRepo {
   async updateStaff(staffId: string, updates: Partial<{
     name: string
     phone: string
-    role: 'support' | 'admin' | 'technician'
+    role: 'support' | 'sales' // 只允許客服和業務
     status: 'active' | 'inactive'
   }>): Promise<void> {
     const customUsers = this.getCustomUsers()

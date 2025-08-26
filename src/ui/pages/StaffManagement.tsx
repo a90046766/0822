@@ -6,7 +6,7 @@ interface StaffData {
   name: string
   email: string
   phone: string
-  role: 'support' | 'admin' | 'technician'
+  role: 'support' | 'sales' // 移除 admin 和 technician
   password: string
 }
 
@@ -20,7 +20,7 @@ export default function StaffManagementPage() {
     name: '',
     email: '',
     phone: '',
-    role: 'support',
+    role: 'support', // 預設為客服
     password: ''
   })
 
@@ -31,7 +31,8 @@ export default function StaffManagementPage() {
   const loadStaffList = async () => {
     setLoading(true)
     try {
-      const { authRepo } = await import('../../adapters/local/auth')
+      const adapters = await import('../../adapters')
+      const { authRepo } = await adapters.loadAdapters()
       const staff = await authRepo.getStaffList()
       setStaffList(staff)
     } catch (error) {
@@ -57,7 +58,8 @@ export default function StaffManagementPage() {
 
     setLoading(true)
     try {
-      const { authRepo } = await import('../../adapters/local/auth')
+      const adapters = await import('../../adapters')
+      const { authRepo } = await adapters.loadAdapters()
       await authRepo.createStaffAccount(formData)
       
       toast.success('客服帳號建立成功！')
@@ -78,7 +80,8 @@ export default function StaffManagementPage() {
 
     setLoading(true)
     try {
-      const { authRepo } = await import('../../adapters/local/auth')
+      const adapters = await import('../../adapters')
+      const { authRepo } = await adapters.loadAdapters()
       await authRepo.updateStaff(selectedStaff.id, {
         name: formData.name,
         phone: formData.phone,
@@ -104,7 +107,8 @@ export default function StaffManagementPage() {
 
     setLoading(true)
     try {
-      const { authRepo } = await import('../../adapters/local/auth')
+      const adapters = await import('../../adapters')
+      const { authRepo } = await adapters.loadAdapters()
       await authRepo.deleteStaff(staffId)
       
       toast.success('客服帳號刪除成功！')
@@ -130,18 +134,16 @@ export default function StaffManagementPage() {
 
   const getRoleLabel = (role: string) => {
     switch (role) {
-      case 'admin': return '管理員'
       case 'support': return '客服'
-      case 'technician': return '技師'
+      case 'sales': return '業務'
       default: return role
     }
   }
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'admin': return 'bg-red-100 text-red-800'
       case 'support': return 'bg-blue-100 text-blue-800'
-      case 'technician': return 'bg-green-100 text-green-800'
+      case 'sales': return 'bg-green-100 text-green-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -150,9 +152,9 @@ export default function StaffManagementPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">客服管理</h1>
+          <h1 className="text-3xl font-bold text-gray-900">客服/業務管理</h1>
           <p className="mt-1 text-sm text-gray-600">
-            管理系統中的客服、技師和管理員帳號
+            管理系統中的客服和業務帳號
           </p>
         </div>
         <button
@@ -160,7 +162,7 @@ export default function StaffManagementPage() {
           className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
         >
           <UserPlus className="h-4 w-4 mr-2" />
-          新增客服
+          新增客服/業務
         </button>
       </div>
 
@@ -271,7 +273,7 @@ export default function StaffManagementPage() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">新增客服帳號</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">新增客服/業務帳號</h3>
               <form onSubmit={handleAddStaff} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">姓名</label>
@@ -311,8 +313,7 @@ export default function StaffManagementPage() {
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="support">客服</option>
-                    <option value="technician">技師</option>
-                    <option value="admin">管理員</option>
+                    <option value="sales">業務</option>
                   </select>
                 </div>
                 <div>
@@ -354,7 +355,7 @@ export default function StaffManagementPage() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">編輯客服資料</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">編輯客服/業務資料</h3>
               <form onSubmit={handleEditStaff} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">姓名</label>
@@ -394,8 +395,7 @@ export default function StaffManagementPage() {
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="support">客服</option>
-                    <option value="technician">技師</option>
-                    <option value="admin">管理員</option>
+                    <option value="sales">業務</option>
                   </select>
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">

@@ -82,12 +82,12 @@ class SupabaseAuthRepo implements AuthRepo {
     return this.currentUser
   }
 
-  // 新增客服帳號（支援預設密碼 a123123）
+  // 新增客服/業務帳號（支援預設密碼 a123123）
   async createStaffAccount(staffData: {
     name: string
     email: string
     phone: string
-    role: 'support' | 'admin' | 'technician'
+    role: 'support' | 'sales' // 只允許客服和業務
     password?: string // 設為可選，預設使用 a123123
   }): Promise<User> {
     const password = staffData.password || 'a123123' // 預設密碼
@@ -162,7 +162,7 @@ class SupabaseAuthRepo implements AuthRepo {
   async updateStaff(staffId: string, updates: Partial<{
     name: string
     phone: string
-    role: 'support' | 'admin' | 'technician'
+    role: 'support' | 'sales' // 只允許客服和業務
     status: 'active' | 'inactive'
   }>): Promise<void> {
     const { error } = await supabase

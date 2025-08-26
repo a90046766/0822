@@ -269,3 +269,4 @@ if __name__ == "__main__":
         print(f"\n\n❌ 測試程序錯誤: {e}")
         input("按 Enter 鍵退出...")
 
+

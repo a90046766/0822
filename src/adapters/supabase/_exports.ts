@@ -1,26 +1,21 @@
-// 雲端：orders 接 Supabase
-export { orderRepo } from './orders'
-export { authRepo } from '../local/auth'
-// 產品改用雲端，提供購物車商品與安全庫存提醒
+export { authRepo } from './auth'
 export { productRepo } from './products'
-export { inventoryRepo } from './inventory'
-export { memberRepo } from './members'
-export { technicianRepo, technicianApplicationRepo } from './technicians'
-export { scheduleRepo } from './schedule'
-export { staffRepo, staffApplicationRepo } from './staff'
-export { memberApplicationRepo } from './members'
-// 後續逐步補上：technicians, staff, members, schedule, ...
-// 臨時：settings 以本機實作提供（雲端模式亦可用）
-export { settingsRepo } from './settings'
-// 回報中心、薪資、預約先沿用本機，等雲端接完再切
-export { reportsRepo } from './reports'
-export { payrollRepo } from './payroll'
-export { reservationsRepo } from './reservations'
-export { usedItemsRepo } from './used_items'
+export { orderRepo } from './orders'
+export { technicianRepo } from './technicians'
 export { customerRepo } from './customers'
-export { documentsRepo } from './documents'
-export { modelsRepo } from './models'
-export { promotionsRepo } from './promotions'
+export { memberRepo } from './members'
 export { notificationRepo } from './notifications'
+export { reportRepo } from './reports'
+export { inventoryRepo } from './inventory'
+export { promotionRepo } from './promotions'
+export { documentRepo } from './documents'
+export { modelRepo } from './models'
+export { reservationRepo } from './reservations'
+export { scheduleRepo } from './schedule'
+export { staffRepo } from './staff'
+export { settingsRepo } from './settings'
+export { payrollRepo } from './payroll'
+export { usedItemRepo } from './used_items'
+export { productMetaRepo } from './product_meta'
 
 

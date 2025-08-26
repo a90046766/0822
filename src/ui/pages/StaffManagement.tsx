@@ -1,139 +1,422 @@
-import { useEffect, useState } from 'react'
-import { loadAdapters } from '../../adapters'
-import { authRepo } from '../../adapters/local/auth'
-import { Navigate } from 'react-router-dom'
-import { getPermissionOverride, setPermissionOverride, type Permission } from '../../utils/permissions'
+import { useState, useEffect } from 'react'
+import { Plus, Edit, Trash2, UserPlus, Mail, Phone, Shield } from 'lucide-react'
+import toast from 'react-hot-toast'
+
+interface StaffData {
+  name: string
+  email: string
+  phone: string
+  role: 'support' | 'admin' | 'technician'
+  password: string
+}
 
 export default function StaffManagementPage() {
-  const u = authRepo.getCurrentUser()
-  if (u && u.role!=='admin') return <Navigate to="/dispatch" replace />
-  const [rows, setRows] = useState<any[]>([])
-  const [edit, setEdit] = useState<any | null>(null)
-  const [repos, setRepos] = useState<any>(null)
-  useEffect(() => { (async()=>{ const a = await loadAdapters(); setRepos(a); setRows(await a.staffRepo.list()) })() }, [])
+  const [staffList, setStaffList] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedStaff, setSelectedStaff] = useState<any>(null)
+  const [formData, setFormData] = useState<StaffData>({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'support',
+    password: ''
+  })
+
+  useEffect(() => {
+    loadStaffList()
+  }, [])
+
+  const loadStaffList = async () => {
+    setLoading(true)
+    try {
+      const { authRepo } = await import('../../adapters/local/auth')
+      const staff = await authRepo.getStaffList()
+      setStaffList(staff)
+    } catch (error) {
+      toast.error('載入員工列表失敗')
+      console.error(error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAddStaff = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!formData.name || !formData.email || !formData.phone || !formData.password) {
+      toast.error('請填寫所有必填欄位')
+      return
+    }
+
+    if (formData.password.length < 6) {
+      toast.error('密碼至少需要6個字元')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const { authRepo } = await import('../../adapters/local/auth')
+      await authRepo.createStaffAccount(formData)
+      
+      toast.success('客服帳號建立成功！')
+      setShowAddModal(false)
+      setFormData({ name: '', email: '', phone: '', role: 'support', password: '' })
+      loadStaffList()
+    } catch (error: any) {
+      toast.error(error.message || '建立客服帳號失敗')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEditStaff = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!selectedStaff) return
+
+    setLoading(true)
+    try {
+      const { authRepo } = await import('../../adapters/local/auth')
+      await authRepo.updateStaff(selectedStaff.id, {
+        name: formData.name,
+        phone: formData.phone,
+        role: formData.role
+      })
+      
+      toast.success('員工資料更新成功！')
+      setShowEditModal(false)
+      setSelectedStaff(null)
+      setFormData({ name: '', email: '', phone: '', role: 'support', password: '' })
+      loadStaffList()
+    } catch (error: any) {
+      toast.error(error.message || '更新員工資料失敗')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteStaff = async (staffId: string, staffName: string) => {
+    if (!confirm(`確定要刪除客服「${staffName}」嗎？此操作無法復原。`)) {
+      return
+    }
+
+    setLoading(true)
+    try {
+      const { authRepo } = await import('../../adapters/local/auth')
+      await authRepo.deleteStaff(staffId)
+      
+      toast.success('客服帳號刪除成功！')
+      loadStaffList()
+    } catch (error: any) {
+      toast.error(error.message || '刪除客服帳號失敗')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const openEditModal = (staff: any) => {
+    setSelectedStaff(staff)
+    setFormData({
+      name: staff.name,
+      email: staff.email,
+      phone: staff.phone,
+      role: staff.role,
+      password: ''
+    })
+    setShowEditModal(true)
+  }
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin': return '管理員'
+      case 'support': return '客服'
+      case 'technician': return '技師'
+      default: return role
+    }
+  }
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'bg-red-100 text-red-800'
+      case 'support': return 'bg-blue-100 text-blue-800'
+      case 'technician': return 'bg-green-100 text-green-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="text-lg font-semibold">員工管理</div>
-        <button onClick={()=>setEdit({ name:'', email:'', role:'support', status:'active' })} className="rounded-lg bg-brand-500 px-3 py-1 text-white">新增</button>
-      </div>
-      <AdminSettingsPanel />
-      {rows.map(s => (
-        <div key={s.id} className="rounded-xl border p-4 shadow-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-semibold">{s.name} <span className="text-xs text-gray-500">{s.refCode || ''}</span></div>
-              <div className="text-xs text-gray-500">信箱 {s.email}｜手機 {s.phone||'-'}｜聯絡人手機 {s.contactPhone||'-'}｜員工編號 {s.refCode||'-'}｜{s.role==='support'?'客服':'業務'}｜{s.status==='active'?'啟用':'停用'}｜積分 {s.points||0}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              {s.refCode && <button onClick={()=>navigator.clipboard.writeText(s.refCode)} className="rounded-lg bg-gray-100 px-3 py-1 text-sm">複製編號</button>}
-              <button onClick={()=>setEdit(s)} className="rounded-lg bg-gray-900 px-3 py-1 text-white">編輯</button>
-              <button onClick={async()=>{ const { confirmTwice } = await import('../kit'); if (await confirmTwice('確認刪除該員工？','刪除後無法復原，仍要刪除？')) { await repos.staffRepo.remove(s.id); setRows(await repos.staffRepo.list()) } }} className="rounded-lg bg-rose-500 px-3 py-1 text-white">刪除</button>
-              <button onClick={async()=>{ await repos.staffRepo.resetPassword(s.id); alert('已觸發重設密碼（示意）') }} className="rounded-lg bg-gray-100 px-3 py-1 text-sm">重設密碼</button>
-            </div>
-          </div>
-          <PermissionOverrideEditor email={s.email} />
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">客服管理</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            管理系統中的客服、技師和管理員帳號
+          </p>
         </div>
-      ))}
-      {rows.length===0 && <div className="text-gray-500">尚無員工</div>}
-      {edit && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-card">
-            <div className="mb-2 text-lg font-semibold">{edit.id?'編輯':'新增'}員工</div>
-            <div className="space-y-2 text-sm">
-              <div>姓名：<input className="w-full rounded border px-2 py-1" value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})} /></div>
-              <div>Email：<input className="w-full rounded border px-2 py-1" value={edit.email} onChange={e=>setEdit({...edit,email:e.target.value})} /></div>
-              <div>角色：
-                <select className="w-full rounded border px-2 py-1" value={edit.role} onChange={e=>setEdit({...edit,role:e.target.value})}>
-                  <option value="support">客服</option>
-                  <option value="sales">業務</option>
-                </select>
-              </div>
-              <div>狀態：
-                <select className="w-full rounded border px-2 py-1" value={edit.status} onChange={e=>setEdit({...edit,status:e.target.value})}>
-                  <option value="active">啟用</option>
-                  <option value="suspended">停用</option>
-                </select>
-              </div>
-            </div>
-            <div className="mt-3 flex justify-end gap-2">
-              <button onClick={()=>setEdit(null)} className="rounded-lg bg-gray-100 px-3 py-1">取消</button>
-              <button onClick={async()=>{ await repos.staffRepo.upsert(edit); setEdit(null); setRows(await repos.staffRepo.list()) }} className="rounded-lg bg-brand-500 px-3 py-1 text-white">儲存</button>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+        >
+          <UserPlus className="h-4 w-4 mr-2" />
+          新增客服
+        </button>
+      </div>
+
+      {/* 員工列表 */}
+      <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center">
+            <div className="text-lg">載入中...</div>
+          </div>
+        ) : staffList.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <UserPlus className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">沒有員工資料</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              開始新增您的第一個客服帳號
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    姓名
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    聯絡資訊
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    角色
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    狀態
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {staffList.map((staff) => (
+                  <tr key={staff.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                            <span className="text-sm font-medium text-gray-700">
+                              {staff.name.charAt(0)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {staff.name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            ID: {staff.id.slice(0, 8)}...
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        <div className="flex items-center">
+                          <Mail className="h-4 w-4 mr-1 text-gray-400" />
+                          {staff.email}
+                        </div>
+                        <div className="flex items-center mt-1">
+                          <Phone className="h-4 w-4 mr-1 text-gray-400" />
+                          {staff.phone}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(staff.role)}`}>
+                        {getRoleLabel(staff.role)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                        啟用中
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => openEditModal(staff)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStaff(staff.id, staff.name)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* 新增客服 Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">新增客服帳號</h3>
+              <form onSubmit={handleAddStaff} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">姓名</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">電話</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">角色</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({...formData, role: e.target.value as any})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="support">客服</option>
+                    <option value="technician">技師</option>
+                    <option value="admin">管理員</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">密碼</label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                    minLength={6}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">至少6個字元</p>
+                </div>
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {loading ? '建立中...' : '建立帳號'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
       )}
-    </div>
-  )
-}
 
-function AdminSettingsPanel(){
-  const u = authRepo.getCurrentUser()
-  const [enabled, setEnabled] = useState(true)
-  const [mins, setMins] = useState(20)
-  useEffect(()=>{ (async()=>{ try { const { loadAdapters } = await import('../../adapters'); const a = await loadAdapters(); const s = await (a as any).settingsRepo.get(); setEnabled(!!s.countdownEnabled); setMins(s.countdownMinutes||20) } catch {} })() },[])
-  if (!u || u.role!=='admin') return null
-  return (
-    <div className="rounded-xl border bg-white p-3 text-sm shadow-card">
-      <div className="mb-2 font-semibold">系統設定</div>
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)} />啟用服務完成冷卻倒數</label>
-        <div>分鐘：<input type="number" className="w-20 rounded border px-2 py-1" value={mins} onChange={e=>setMins(Number(e.target.value))} /></div>
-        <button onClick={async()=>{ const { loadAdapters } = await import('../../adapters'); const a = await loadAdapters(); await (a as any).settingsRepo.update({ countdownEnabled: enabled, countdownMinutes: Math.max(1, mins|0) }); alert('已儲存設定') }} className="rounded bg-gray-900 px-3 py-1 text-white">儲存</button>
-      </div>
-    </div>
-  )
-}
-
-
-function PermissionOverrideEditor({ email }: { email: string }){
-  const [open, setOpen] = useState(false)
-  const [allow, setAllow] = useState<string[]>([])
-  const [deny, setDeny] = useState<string[]>([])
-  useEffect(()=>{
-    const ov = getPermissionOverride(email || '')
-    setAllow(ov?.allow || []); setDeny(ov?.deny || [])
-  }, [email])
-  const toggle = (list: string[], val: string) => list.includes(val) ? list.filter(v=>v!==val) : [...list, val]
-  const ALL: Permission[] = ['orders.list','orders.create','orders.update','orders.delete','orders.cancel','reservations.manage','customers.manage','technicians.manage','technicians.schedule.view','technicians.schedule.edit','support.schedule.view','support.schedule.edit','staff.manage','products.manage','inventory.manage','promotions.manage','documents.manage','models.manage','notifications.send','approvals.manage','payroll.view','payroll.edit','reports.view','reports.manage']
-  const labelMap: Record<string, string> = {
-    'orders.list':'訂單-檢視', 'orders.read':'訂單-讀取', 'orders.create':'訂單-新增', 'orders.update':'訂單-編輯', 'orders.delete':'訂單-刪除', 'orders.cancel':'訂單-取消',
-    'reservations.manage':'預約-管理', 'customers.manage':'客戶-管理', 'technicians.manage':'技師-管理', 'technicians.schedule.view':'技師排班-檢視', 'technicians.schedule.edit':'技師排班-編輯', 'support.schedule.view':'客服排班-檢視', 'support.schedule.edit':'客服排班-編輯', 'staff.manage':'員工-管理', 'products.manage':'產品-管理', 'inventory.manage':'庫存-管理', 'promotions.manage':'活動-管理', 'documents.manage':'文件-管理', 'models.manage':'機型-管理', 'notifications.send':'通知-發送', 'approvals.manage':'審核-管理', 'payroll.view':'薪資-檢視', 'payroll.edit':'薪資-編輯', 'reports.view':'報表-檢視', 'reports.manage':'報表-管理'
-  }
-  const label = (p: string) => labelMap[p] || p
-  const applyPreset = async (preset: 'support'|'sales'|'technician') => {
-    // 預設：依角色常用權限
-    const presets: Record<string, string[]> = {
-      support: ['orders.list','orders.read','orders.create','orders.update','orders.cancel','reservations.manage','customers.manage','technicians.schedule.view','support.schedule.view','support.schedule.edit','notifications.send','approvals.manage','reports.view','payroll.view'],
-      sales: ['customers.manage','promotions.manage','documents.manage','models.manage','notifications.send','reports.view'],
-      technician: ['orders.list','orders.read','orders.update','technicians.schedule.view','notifications.read' as any]
-    }
-    setAllow(presets[preset] as any); setDeny([])
-  }
-  return (
-    <div className="mt-2">
-      <button onClick={()=>setOpen(o=>!o)} className="rounded bg-gray-100 px-2 py-1 text-xs">{open?'收起權限覆蓋':'編輯權限覆蓋'}</button>
-      {open && (
-        <div className="mt-2 rounded border p-2">
-          <div className="mb-2 flex items-center gap-2 text-xs">
-            <span className="text-gray-600">快速套用：</span>
-            <button onClick={()=>applyPreset('support')} className="rounded bg-gray-100 px-2 py-1">客服預設</button>
-            <button onClick={()=>applyPreset('sales')} className="rounded bg-gray-100 px-2 py-1">業務預設</button>
-            <button onClick={()=>applyPreset('technician')} className="rounded bg-gray-100 px-2 py-1">技師預設</button>
+      {/* 編輯客服 Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">編輯客服資料</h3>
+              <form onSubmit={handleEditStaff} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">姓名</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    disabled
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-50 text-gray-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Email 無法修改</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">電話</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">角色</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({...formData, role: e.target.value as any})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="support">客服</option>
+                    <option value="technician">技師</option>
+                    <option value="admin">管理員</option>
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {loading ? '更新中...' : '更新資料'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-          <div className="text-xs text-gray-600">允許</div>
-          <div className="mt-1 grid grid-cols-2 gap-1">
-            {ALL.map(p => (
-              <label key={`a-${p}`} className="flex items-center gap-1 text-xs"><input type="checkbox" checked={allow.includes(p)} onChange={e=>setAllow(toggle(allow, p))} />{label(p)}</label>
-            ))}
-          </div>
-          <div className="mt-2 text-xs text-gray-600">拒絕</div>
-          <div className="mt-1 grid grid-cols-2 gap-1">
-            {ALL.map(p => (
-              <label key={`d-${p}`} className="flex items-center gap-1 text-xs"><input type="checkbox" checked={deny.includes(p)} onChange={e=>setDeny(toggle(deny, p))} />{label(p)}</label>
-            ))}
-          </div>
-          <div className="mt-2 text-right"><button onClick={()=>{ setPermissionOverride(email, { allow: allow as any, deny: deny as any }); alert('已儲存覆蓋') }} className="rounded bg-brand-500 px-3 py-1 text-xs text-white">儲存覆蓋</button></div>
         </div>
       )}
     </div>

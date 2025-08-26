@@ -1,7 +1,8 @@
 import { checkSupabaseConnection } from '../utils/supabase'
 
+// 修改預設行為：優先使用 Supabase，只有在連線失敗時才回退本地
 const RAW = String(import.meta.env.VITE_USE_SUPABASE || '').toLowerCase()
-const WANT_SUPABASE = RAW === '1' || RAW === 'true'
+const WANT_SUPABASE = RAW === '1' || RAW === 'true' || RAW === '' // 空字串也預設為 true
 const HAS_SUPABASE_KEYS = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)
 const USE_SUPABASE = WANT_SUPABASE && HAS_SUPABASE_KEYS
 
@@ -67,8 +68,8 @@ export async function loadAdapters() {
     }
   }
   
-  // 預設本地模式
-  console.log('💾 使用本地模式')
+  // 只有在明確設定 VITE_USE_SUPABASE=false 時才使用本地模式
+  console.log('💾 使用本地模式（僅在開發測試時使用）')
   return await import('./local/_exports')
 }
 

@@ -12,7 +12,7 @@ function toDbRow(input: Partial<Product>): any {
     category: 'category',
     modeCode: 'mode_code',
     categoryId: 'category_id',
-    defaultQuantity: 'default_quantity',
+    defaultQuantity: 'defaultquantity',
     soldCount: 'sold_count',
   }
   for (const [camel, snake] of Object.entries(map)) {
@@ -41,7 +41,7 @@ function fromDbRow(row: any): Product {
     // @ts-ignore
     categoryId: r.category_id,
     // @ts-ignore
-    defaultQuantity: r.default_quantity ?? 1,
+    defaultQuantity: r.defaultquantity ?? 1,
     // @ts-ignore
     soldCount: r.sold_count ?? 0,
     updatedAt: r.updated_at ?? new Date().toISOString(),

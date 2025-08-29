@@ -90,7 +90,7 @@ class SupabaseAuthRepo implements AuthRepo {
     role: 'support' | 'sales' // 只允許客服和業務
     password?: string // 設為可選，預設使用 a123123
   }): Promise<User> {
-    const password = staffData.password || 'a123123' // 預設密碼
+    const password = staffData.password || 'a123123a' // 預設密碼（至少8位）
     
     // 1. 在 Supabase Auth 中建立用戶
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -99,7 +99,8 @@ class SupabaseAuthRepo implements AuthRepo {
     })
 
     if (authError) {
-      throw new Error(authError.message || '建立用戶失敗')
+      console.error('Auth signup error:', authError)
+      throw new Error(`建立用戶失敗: ${authError.message}`)
     }
 
     if (!authData.user) {
@@ -122,8 +123,8 @@ class SupabaseAuthRepo implements AuthRepo {
       .single()
 
     if (staffError) {
-      // 如果 staff 表插入失敗，刪除剛建立的 auth 用戶
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      // 如果 staff 表插入失敗，記錄錯誤但不刪除 auth 用戶（需要管理員權限）
+      console.error('Staff table insert failed:', staffError)
       throw new Error(staffError.message || '建立員工資料失敗')
     }
 
@@ -164,11 +165,25 @@ class SupabaseAuthRepo implements AuthRepo {
     phone: string
     role: 'support' | 'sales' // 只允許客服和業務
     status: 'active' | 'inactive'
+    password?: string // 新增密碼更新支援
   }>): Promise<void> {
+    // 如果有密碼更新，先更新 Auth 密碼
+    if (updates.password) {
+      const { error: passwordError } = await supabase.auth.admin.updateUserById(
+        staffId,
+        { password: updates.password }
+      )
+      if (passwordError) {
+        throw new Error(passwordError.message || '密碼更新失敗')
+      }
+    }
+
+    // 更新 staff 表資料（排除密碼欄位）
+    const { password, ...staffUpdates } = updates
     const { error } = await supabase
       .from('staff')
       .update({
-        ...updates,
+        ...staffUpdates,
         updated_at: new Date().toISOString()
       })
       .eq('id', staffId)

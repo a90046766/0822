@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { memberRepo } from '../../adapters/local/members'
 
 export default function MemberRegisterPage() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', refCode: '' })
   const [ok, setOk] = useState<{ code: string } | null>(null)
   const [err, setErr] = useState('')
+  const navigate = useNavigate()
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr('')
@@ -21,6 +23,12 @@ export default function MemberRegisterPage() {
         <div className="text-5xl">🎉</div>
         <div className="mt-3 text-lg font-semibold">註冊成功</div>
         <div className="mt-2 text-gray-600">您的會員編號：<span className="font-bold">{ok.code}</span></div>
+        <button
+          onClick={() => navigate('/member-login')}
+          className="mt-6 w-full rounded-xl bg-brand-500 py-3 text-white hover:bg-brand-600"
+        >
+          返回登入
+        </button>
       </div>
     </div>
   )

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authRepo } from '../../adapters/local/auth'
 
-export default function LoginPage() {
+export default function MemberLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
@@ -56,7 +56,7 @@ export default function LoginPage() {
       <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-card">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-gray-900">洗濯派工系統</h1>
-          <p className="mt-1 text-sm text-gray-500">員工登入</p>
+          <p className="mt-1 text-sm text-gray-500">會員登入</p>
         </div>
 
         {error && (
@@ -134,10 +134,10 @@ export default function LoginPage() {
           <div className="text-sm text-gray-600">還沒有帳號？</div>
           <button
             type="button"
-            onClick={() => navigate('/technician-apply')}
+            onClick={() => navigate('/member-register')}
             className="mt-2 text-sm text-brand-600 underline hover:text-brand-700"
           >
-            技師申請
+            請註冊
           </button>
         </div>
       </form>

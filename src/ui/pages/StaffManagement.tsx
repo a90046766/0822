@@ -46,21 +46,22 @@ export default function StaffManagementPage() {
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.name || !formData.email || !formData.phone || !formData.password) {
+    if (!formData.name || !formData.email || !formData.phone) {
       toast.error('請填寫所有必填欄位')
       return
     }
 
-    if (formData.password.length < 6) {
-      toast.error('密碼至少需要6個字元')
-      return
-    }
+    // 使用預設密碼 a123123，除非用戶特別指定了其他密碼
+    const password = formData.password || 'a123123'
 
     setLoading(true)
     try {
       const adapters = await import('../../adapters')
       const { authRepo } = await adapters.loadAdapters()
-      await authRepo.createStaffAccount(formData)
+      await authRepo.createStaffAccount({
+        ...formData,
+        password: password
+      })
       
       toast.success('客服帳號建立成功！')
       setShowAddModal(false)
@@ -82,11 +83,20 @@ export default function StaffManagementPage() {
     try {
       const adapters = await import('../../adapters')
       const { authRepo } = await adapters.loadAdapters()
-      await authRepo.updateStaff(selectedStaff.id, {
+      
+      // 準備更新資料
+      const updateData: any = {
         name: formData.name,
         phone: formData.phone,
         role: formData.role
-      })
+      }
+      
+      // 如果有輸入密碼，加入更新資料
+      if (formData.password && formData.password.trim()) {
+        updateData.password = formData.password
+      }
+      
+      await authRepo.updateStaff(selectedStaff.id, updateData)
       
       toast.success('員工資料更新成功！')
       setShowEditModal(false)
@@ -317,16 +327,15 @@ export default function StaffManagementPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">密碼</label>
+                  <label className="block text-sm font-medium text-gray-700">密碼（選填）</label>
                   <input
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    required
-                    minLength={6}
+                    placeholder="留空使用預設密碼 a123123"
                   />
-                  <p className="mt-1 text-xs text-gray-500">至少6個字元</p>
+                  <p className="mt-1 text-xs text-gray-500">留空將使用預設密碼：a123123</p>
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
@@ -397,6 +406,17 @@ export default function StaffManagementPage() {
                     <option value="support">客服</option>
                     <option value="sales">業務</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">密碼（選填）</label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="留空不修改密碼"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">留空將保持原密碼不變</p>
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
                   <button

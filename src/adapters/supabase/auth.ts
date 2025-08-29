@@ -1,10 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
 import type { AuthRepo, User } from '../../core/repository'
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { supabase } from '../../utils/supabase'
 
 class SupabaseAuthRepo implements AuthRepo {
   private currentUser: User | null = null

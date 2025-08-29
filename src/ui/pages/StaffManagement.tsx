@@ -93,7 +93,7 @@ export default function StaffManagementPage() {
       
       // 如果有輸入密碼且不是預設佔位符，加入更新資料
       if (formData.password && formData.password.trim() && formData.password !== '********') {
-        updateData.password = formData.password
+        updateData.password = formData.password.trim()
       }
       
       await authRepo.updateStaff(selectedStaff.id, updateData)
@@ -411,19 +411,28 @@ export default function StaffManagementPage() {
                   <label className="block text-sm font-medium text-gray-700">密碼（選填）</label>
                   <input
                     type="password"
-                    value={formData.password || '********'}
+                    value={formData.password === '********' ? '' : formData.password}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="留空不修改密碼"
                   />
                   <p className="mt-1 text-xs text-gray-500">留空將保持原密碼不變，輸入新密碼可更新</p>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({...formData, password: 'a123123a'})}
-                    className="mt-1 text-xs text-blue-600 underline hover:text-blue-700"
-                  >
-                    重置為預設密碼 (a123123a)
-                  </button>
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({...formData, password: 'a123123a'})}
+                      className="text-xs text-blue-600 underline hover:text-blue-700"
+                    >
+                      重置為預設密碼
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({...formData, password: ''})}
+                      className="text-xs text-red-600 underline hover:text-red-700"
+                    >
+                      清空密碼欄位
+                    </button>
+                  </div>
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
                   <button

@@ -87,7 +87,7 @@ function DesktopNav() {
       {to==='/notifications' && unreadCount>0 && (<span className="h-2 w-2 rounded-full bg-rose-500" />)}
       {/* 其他項目：紅色數字標籤 */}
       {badge && badge>0 && to!=='/notifications' && (
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-medium text-white">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-medium text-white ml-1">
           {badge > 99 ? '99+' : badge}
         </span>
       )}

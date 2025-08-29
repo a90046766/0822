@@ -86,6 +86,15 @@ class LocalAuthRepo implements AuthRepo {
   }
 
   getCurrentUser(): User | null {
+    // 如果沒有當前用戶，嘗試從 localStorage 恢復
+    if (!this.currentUser) {
+      try {
+        const saved = localStorage.getItem(this.storageKey)
+        if (saved) {
+          this.currentUser = JSON.parse(saved)
+        }
+      } catch {}
+    }
     return this.currentUser
   }
 

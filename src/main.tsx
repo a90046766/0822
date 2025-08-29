@@ -5,6 +5,7 @@ import './styles.css'
 
 // 頁面
 import LoginPage from './ui/pages/Login'
+import TestLoginPage from './ui/pages/TestLogin'
 import TechnicianApplyPage from './ui/pages/TechnicianApply'
 import StaffApplyPage from './ui/pages/StaffApply'
 import MemberApplyPage from './ui/pages/MemberApply'

@@ -8,7 +8,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey)
 async function testActualUser() {
   console.log('🔍 測試實際用戶登入...')
   
-  const email = 'qyome168@gmail.com'
+  const email = 'a90046766@gmail.com'
   console.log(`\n測試用戶: ${email}`)
   
   // 檢查該用戶是否在 staff 表中

@@ -198,6 +198,19 @@ class SupabaseAuthRepo implements AuthRepo {
     // 2. 記錄需要手動刪除 auth 用戶
     console.warn('員工資料已刪除，請在 Supabase Dashboard 中手動刪除對應的 Auth 用戶')
   }
+
+  // 記住帳號功能
+  rememberEmail(email: string): void {
+    localStorage.setItem('supabase-auth-remember', email)
+  }
+
+  getRememberedEmail(): string | null {
+    return localStorage.getItem('supabase-auth-remember')
+  }
+
+  forgetEmail(): void {
+    localStorage.removeItem('supabase-auth-remember')
+  }
 }
 
 export const authRepo = new SupabaseAuthRepo()

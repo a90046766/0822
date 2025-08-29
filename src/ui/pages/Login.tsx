@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authRepo } from '../../adapters/local/auth'
+import { loadAdapters } from '../../adapters'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -12,11 +12,19 @@ export default function LoginPage() {
 
   useEffect(() => {
     // 檢查是否有記住的帳號
-    const remembered = authRepo.getRememberedEmail()
-    if (remembered) {
-      setEmail(remembered)
-      setRemember(true)
+    const checkRemembered = async () => {
+      try {
+        const { authRepo } = await loadAdapters()
+        const remembered = authRepo.getRememberedEmail()
+        if (remembered) {
+          setEmail(remembered)
+          setRemember(true)
+        }
+      } catch (error) {
+        console.error('載入 adapters 失敗:', error)
+      }
     }
+    checkRemembered()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,6 +35,7 @@ export default function LoginPage() {
     setError('')
 
     try {
+      const { authRepo } = await loadAdapters()
       const u = await authRepo.login(email, password)
       
       // 處理記住帳號
@@ -45,10 +54,15 @@ export default function LoginPage() {
     }
   }
 
-  const handleChangeAccount = () => {
+  const handleChangeAccount = async () => {
     setRemember(false)
     setEmail('')
-    authRepo.forgetEmail()
+    try {
+      const { authRepo } = await loadAdapters()
+      authRepo.forgetEmail()
+    } catch (error) {
+      console.error('載入 adapters 失敗:', error)
+    }
   }
 
   return (

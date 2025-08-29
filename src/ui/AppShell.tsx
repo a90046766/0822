@@ -81,13 +81,13 @@ function DesktopNav() {
     })
   }, [loc.pathname])
   const Item = ({ to, label, badge, disabled }: { to: string; label: string; badge?: number; disabled?: boolean }) => (
-    <Link to={to} className={`relative flex items-center justify-between rounded-lg px-3 py-2 text-sm ${active(to)} ${disabled ? 'pointer-events-none opacity-40' : ''}`}>
-      <span className="truncate">{label}</span>
+    <Link to={to} className={`relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${active(to)} ${disabled ? 'pointer-events-none opacity-40' : ''}`}>
+      <span className="truncate flex-1">{label}</span>
       {/* 通知中心：紅點 */}
-      {to==='/notifications' && unreadCount>0 && (<span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-rose-500" />)}
+      {to==='/notifications' && unreadCount>0 && (<span className="h-2 w-2 rounded-full bg-rose-500" />)}
       {/* 其他項目：紅色數字標籤 */}
       {badge && badge>0 && to!=='/notifications' && (
-        <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-medium text-white">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-medium text-white">
           {badge > 99 ? '99+' : badge}
         </span>
       )}
@@ -168,7 +168,7 @@ function DesktopNav() {
   }
 
   return (
-    <aside className="w-56 shrink-0 border-r bg-white p-3">
+    <aside className="w-48 shrink-0 border-r bg-white p-3">
       <div className="mb-3 px-1 text-sm font-semibold text-gray-500">功能選單</div>
       <nav className="space-y-1">
         {menuTop.map(m => renderItem(m.to, m.label, m.perm))}

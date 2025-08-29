@@ -81,8 +81,8 @@ function DesktopNav() {
     })
   }, [loc.pathname])
   const Item = ({ to, label, badge, disabled }: { to: string; label: string; badge?: number; disabled?: boolean }) => (
-    <Link to={to} className={`relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${active(to)} ${disabled ? 'pointer-events-none opacity-40' : ''}`}>
-      <span className="truncate flex-1">{label}</span>
+    <Link to={to} className={`relative flex items-center justify-between rounded-lg px-3 py-2 text-sm ${active(to)} ${disabled ? 'pointer-events-none opacity-40' : ''}`}>
+      <span className="truncate">{label}</span>
       {/* 通知中心：紅點 */}
       {to==='/notifications' && unreadCount>0 && (<span className="h-2 w-2 rounded-full bg-rose-500" />)}
       {/* 其他項目：紅色數字標籤 */}

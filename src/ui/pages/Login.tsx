@@ -134,10 +134,10 @@ export default function LoginPage() {
           <div className="text-sm text-gray-600">還沒有帳號？</div>
           <button
             type="button"
-            onClick={() => navigate('/technician-apply')}
+            onClick={() => navigate('/apply/technician')}
             className="mt-2 text-sm text-brand-600 underline hover:text-brand-700"
           >
-            技師申請
+            註冊
           </button>
         </div>
       </form>

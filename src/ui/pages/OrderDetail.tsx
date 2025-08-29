@@ -142,7 +142,7 @@ export default function PageOrderDetail() {
   const hasSignature = hasTechSignature && hasCustomerSignature
   const requirePhotosOk = (order.photosBefore?.length||0) > 0 || (order.photosAfter?.length||0) > 0
   // 簽名候選名單：優先用訂單內的 assignedTechnicians，否則回退使用從排程推導的 derivedAssigned
-  const signCandidates: string[] = Array.isArray(order.assignedTechnicians) && order.assignedTechnicians.length>0
+  const signCandidates: string[] = (Array.isArray(order.assignedTechnicians) && order.assignedTechnicians.length>0)
     ? order.assignedTechnicians
     : (derivedAssigned || [])
   const canClose = (

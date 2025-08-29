@@ -162,15 +162,10 @@ class SupabaseAuthRepo implements AuthRepo {
     status: 'active' | 'inactive'
     password?: string // 新增密碼更新支援
   }>): Promise<void> {
-    // 如果有密碼更新，先更新 Auth 密碼
+    // 如果有密碼更新，記錄但不執行（需要管理員權限）
     if (updates.password) {
-      const { error: passwordError } = await supabase.auth.admin.updateUserById(
-        staffId,
-        { password: updates.password }
-      )
-      if (passwordError) {
-        throw new Error(passwordError.message || '密碼更新失敗')
-      }
+      console.warn('密碼更新需要管理員權限，請在 Supabase Dashboard 中手動更新')
+      // 注意：密碼更新需要 service role key，這裡暫時跳過
     }
 
     // 更新 staff 表資料（排除密碼欄位）
@@ -200,12 +195,8 @@ class SupabaseAuthRepo implements AuthRepo {
       throw new Error(staffError.message || '刪除員工資料失敗')
     }
 
-    // 2. 從 auth 刪除用戶（需要管理員權限）
-    try {
-      await supabase.auth.admin.deleteUser(staffId)
-    } catch (error) {
-      console.warn('無法刪除 auth 用戶，可能需要管理員權限')
-    }
+    // 2. 記錄需要手動刪除 auth 用戶
+    console.warn('員工資料已刪除，請在 Supabase Dashboard 中手動刪除對應的 Auth 用戶')
   }
 }
 
